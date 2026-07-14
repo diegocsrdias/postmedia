@@ -1,6 +1,6 @@
 import { chat, image, preflight, readJson } from './_lib/openai.js'
 import { imageIdeaPrompt, imagePrompt } from './_lib/prompts.js'
-import { getClient } from './_lib/clients.js'
+import { getClient, randomImageWorld } from './_lib/clients.js'
 
 const SIZES = {
   square: '1024x1024',
@@ -38,12 +38,14 @@ export default async function handler(req, res) {
     }
 
     // 1) IA de texto sugere uma cena que faça sentido com o conteúdo do post
-    //    (sorteando um direcionamento de estilo pra não repetir sempre a mesma composição).
+    //    (sorteando um "mundo visual" e um direcionamento de estilo — luz/ângulo —
+    //    diferentes a cada chamada, pra não convergir sempre pro mesmo objeto/composição).
     const hint = randomStyleHint()
-    const { system, user } = imageIdeaPrompt(rawText, hint, client)
+    const world = randomImageWorld(client)
+    const { system, user } = imageIdeaPrompt(rawText, hint, client, world)
     let sceneIdea = rawText
     try {
-      const raw = await chat({ system, user, maxTokens: 200, temperature: 1.05 })
+      const raw = await chat({ system, user, maxTokens: 200, temperature: 1.15 })
       const cleaned = String(raw || '')
         .trim()
         .replace(/^["“”']+|["“”']+$/g, '')
@@ -52,9 +54,10 @@ export default async function handler(req, res) {
       // se a sugestão de cena falhar, seguimos com o texto do post cru
     }
 
-    // 2) IA de imagem gera o fundo com base na cena sugerida
+    // 2) IA de imagem gera o fundo com base na cena sugerida, reforçando o
+    //    direcionamento de estilo diretamente no prompt final (não só via texto).
     const size = SIZES[format] || SIZES.square
-    const dataUrl = await image({ prompt: imagePrompt(sceneIdea, client), size })
+    const dataUrl = await image({ prompt: imagePrompt(sceneIdea, client, hint), size })
     res.status(200).json({ image: dataUrl, idea: sceneIdea })
   } catch (err) {
     res.status(502).json({ error: String(err?.message || err) })

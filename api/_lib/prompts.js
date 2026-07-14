@@ -79,7 +79,7 @@ export function themePrompt(n, theme, client) {
  * que faça sentido com o conteúdo do post — usado antes de gerar a imagem,
  * pra cada geração sair diferente e conectada ao texto do criativo.
  */
-export function imageIdeaPrompt(postText, styleHint, client) {
+export function imageIdeaPrompt(postText, styleHint, client, world) {
   const system =
     'Você é diretor de arte da marca "' +
     client.name +
@@ -88,11 +88,11 @@ export function imageIdeaPrompt(postText, styleHint, client) {
     '). ' +
     'Sua função é sugerir, em UMA frase curta e concreta (até ~22 palavras), uma cena real ' +
     'para servir de FOTO DE FUNDO de um post, que se conecte com o assunto do texto abaixo, ' +
-    'dentro do universo visual: ' +
-    client.imageWorld +
+    'partindo deste cenário/objeto como ponto de partida (pode adaptar livremente): ' +
+    (world || client.imageWorld) +
     '. ' +
-    'Descreva objetos, cenário e clima da cena. NÃO inclua texto/letras/logotipos na descrição. ' +
-    'NÃO repita cenas óbvias sempre iguais — varie o ângulo e o cenário a cada pedido. ' +
+    'Descreva objetos, cenário e clima da cena de forma bem específica e concreta (nada genérico). NÃO inclua texto/letras/logotipos na descrição. ' +
+    'NÃO repita cenas óbvias sempre iguais — cada sugestão deve ser visualmente diferente das anteriores, variando ângulo, objetos e cenário. ' +
     'Responda APENAS com a frase da cena, sem aspas, sem explicações.'
   const user =
     'Texto do post: "' +
@@ -104,7 +104,7 @@ export function imageIdeaPrompt(postText, styleHint, client) {
 }
 
 /** Monta o prompt de imagem, ancorado na identidade visual da marca. */
-export function imagePrompt(userIdea, client) {
+export function imagePrompt(userIdea, client, styleHint) {
   const brand =
     'Fotografia profissional e editorial para post de rede social da marca "' +
     client.name +
@@ -114,15 +114,14 @@ export function imagePrompt(userIdea, client) {
     'NÃO faça ilustração flat, NÃO faça vetor, NÃO faça desenho geométrico simples — o resultado deve parecer uma foto real, ' +
     'batida com câmera profissional (lente boa, profundidade de campo, luz e sombra naturais, texturas e materiais reais e ricos em detalhe: ' +
     'madeira, tecido, papel, vidro, metal, pele, plantas, ambientes reais). ' +
-    'Cena elaborada e cheia de vida, com composição fotográfica de revista (regra dos terços, luz direcional, reflexos, profundidade), ' +
-    'dentro do universo visual da marca: ' +
-    client.imageWorld +
-    '. ' +
+    'Cena elaborada e cheia de vida, com composição fotográfica de revista (regra dos terços, reflexos, profundidade). ' +
+    (styleHint ? 'Composição e luz OBRIGATÓRIAS para esta imagem: ' + styleHint + '. ' : '') +
     'Aplique a identidade da marca de forma sutil e natural através da luz, reflexos, objetos de cena ou grade de cor — ' +
     'tons que lembrem ' +
     client.palette +
     ' — sem parecer um filtro artificial por cima. ' +
-    'Deixe uma área de respiro (ex.: parede lisa, céu, mesa vazia, fundo desfocado) livre de elementos para permitir sobrepor texto depois. ' +
+    'Deixe uma pequena área de respiro livre de elementos (não precisa ser o centro nem ocupar a cena toda) para permitir sobrepor texto depois. ' +
+    'IMPORTANTE: cada imagem deve ser visualmente ÚNICA e diferente das anteriores — varie ângulo, enquadramento, distância da câmera e disposição dos objetos; NÃO repita sempre a mesma composição "segura" de plano geral com fundo desfocado. ' +
     'Altíssima resolução, riqueza de textura e realismo fotográfico. ' +
     "SEM texto, SEM letras, SEM números, SEM logotipos, SEM marcas d'água, SEM aparência de ilustração/cartoon/3D genérico. "
   return brand + 'Cena/ideia a retratar: ' + String(userIdea || '').trim()
