@@ -40,9 +40,16 @@ export function themePrompt(n, theme) {
 /** Monta o prompt de imagem, ancorado na identidade visual da marca. */
 export function imagePrompt(userIdea) {
   const brand =
-    'Fundo/ilustração para post de rede social do app de finanças "Controle DinDin". ' +
-    'Paleta da marca: azul-marinho profundo (#303078), verde-limão vibrante (#C0D830) e creme (#F6F2EA). ' +
-    'Estilo: moderno, limpo, flat/vetorial com formas geométricas suaves, alto contraste, adequado para sobrepor texto. ' +
-    'SEM TEXTO, sem letras, sem números, sem logotipos na imagem. Composição com bastante espaço negativo. '
-  return brand + 'Tema/ideia: ' + String(userIdea || '').trim()
+    'Fotografia profissional e editorial para post de rede social do app de finanças "Controle DinDin". ' +
+    'NÃO faça ilustração flat, NÃO faça vetor, NÃO faça desenho geométrico simples — o resultado deve parecer uma foto real, ' +
+    'batida com câmera profissional (lente boa, profundidade de campo, luz e sombra naturais, texturas e materiais reais e ricos em detalhe: ' +
+    'madeira, tecido, papel, vidro, metal, pele, plantas, ambientes reais). ' +
+    'Cena elaborada e cheia de vida, com composição fotográfica de revista (regra dos terços, luz direcional, reflexos, profundidade), ' +
+    'ligada ao universo de dinheiro, economia doméstica e vida financeira das pessoas no Brasil. ' +
+    'Aplique a identidade da marca de forma sutil e natural através da luz, reflexos, objetos de cena ou grade de cor — ' +
+    'tons que lembrem azul-marinho profundo (#303078), verde-limão vibrante (#C0D830) e creme (#F6F2EA) — sem parecer um filtro artificial por cima. ' +
+    'Deixe uma área de respiro (ex.: parede lisa, céu, mesa vazia, fundo desfocado) livre de elementos para permitir sobrepor texto depois. ' +
+    'Altíssima resolução, riqueza de textura e realismo fotográfico. ' +
+    'SEM texto, SEM letras, SEM números, SEM logotipos, SEM marcas d\'água, SEM aparência de ilustração/cartoon/3D genérico. '
+  return brand + 'Cena/ideia a retratar: ' + String(userIdea || '').trim()
 }
