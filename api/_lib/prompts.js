@@ -1,5 +1,12 @@
 // Prompts de IA (rodam no servidor). Parametrizados por cliente (ver ./clients.js).
 
+/** Formata as regras de escrita específicas do cliente (se houver) pro system prompt. */
+function guardrails(client) {
+  const rules = client && client.writingRules
+  if (!rules || !rules.length) return ''
+  return '\n\nREGRAS OBRIGATÓRIAS DE ESCRITA (siga TODAS, sem exceção):\n' + rules.map((r) => '- ' + r).join('\n')
+}
+
 export function adsPrompt(n, existingHeadlines, client) {
   const system =
     'Você é redator publicitário da marca "' +
@@ -12,7 +19,8 @@ export function adsPrompt(n, existingHeadlines, client) {
     client.tone +
     '. Público: ' +
     client.audience +
-    '.'
+    '.' +
+    guardrails(client)
   const user =
     'Crie ' +
     n +
@@ -22,7 +30,7 @@ export function adsPrompt(n, existingHeadlines, client) {
     'Cada conceito tem EXATAMENTE estes campos:\n' +
     '{ "f": { "badge": selo curto em MAIÚSCULAS (2-4 palavras), "headline": início da frase de impacto (até ~34 caracteres), "highlight": fecho da frase que ficará em destaque (1-3 palavras com ponto final), "sub": 1-2 frases vendendo um benefício concreto, "cta": texto do botão (2-4 palavras, sobre ' +
     client.ctaWord +
-    ') }, "caption": "legenda 2-4 linhas com emoji e CTA pro link na bio", "hashtags": "5 hashtags incluindo ' +
+    ') }, "caption": "legenda 2-4 linhas (emoji só se combinar com o tom da marca) e CTA pro link na bio", "hashtags": "5 hashtags incluindo ' +
     client.hashtag +
     '", "vcap": "frase curta pra tela do vídeo" }\n\n' +
     'headline+highlight devem formar UMA frase fluida. PT-BR. Responda SOMENTE com um array JSON válido, sem crases nem texto extra.'
@@ -41,7 +49,8 @@ export function themePrompt(n, theme, client) {
     client.tone +
     '. Público: ' +
     client.audience +
-    '.'
+    '.' +
+    guardrails(client)
   const user =
     'Crie ' +
     n +
@@ -57,7 +66,7 @@ export function themePrompt(n, theme, client) {
     '- "myth": { "myth": crença errada, "truth": correção }\n\n' +
     'Regras: varie os layouts entre os itens; textos MUITO curtos (line1/line2/headline/title até ~28 caracteres pra caber na tela); PT-BR; nada ofensivo.\n\n' +
     'Responda SOMENTE com um array JSON válido (sem texto antes ou depois, sem crases). Cada item:\n' +
-    '{ "layout": "...", "f": { campos do layout escolhido }, "caption": "legenda de 2-3 linhas com emoji e chamada pra ação (' +
+    '{ "layout": "...", "f": { campos do layout escolhido }, "caption": "legenda de 2-3 linhas (emoji só se combinar com o tom da marca) e chamada pra ação (' +
     client.ctaWord +
     ')", "hashtags": "5 hashtags começando com # incluindo ' +
     client.hashtag +
