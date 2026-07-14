@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { Creative, CreativeFields, Filter, Format } from './types'
 import { THEMES } from './data/bank'
@@ -50,6 +50,14 @@ export default function App() {
   const [toast, setToast] = useState('')
   const toastTimer = useRef<number | undefined>(undefined)
   const recording = useRef(false)
+
+  // largura da viewport — usada para dimensionar o preview no mobile
+  const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1200))
+  useEffect(() => {
+    const onResize = () => setVw(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const square = format === 'square'
 
@@ -253,7 +261,11 @@ export default function App() {
   // ----- métricas de layout -----
   const innerW = 1080
   const innerH = square ? 1080 : 1920
-  const frameW = square ? 340 : 300
+  const preferredFrameW = square ? 340 : 300
+  // no mobile, o card tem ~viewport de largura; o preview não pode estourar.
+  // desconta paddings da página (14) e do card (20) de cada lado.
+  const maxFrameW = Math.max(220, Math.min(preferredFrameW, vw - (14 + 20) * 2))
+  const frameW = maxFrameW
   const scale = frameW / innerW
   const frameH = Math.round(innerH * scale)
   const scaleStr = scale.toFixed(4)
@@ -262,13 +274,13 @@ export default function App() {
     <div style={{ minHeight: '100vh', background: '#EEE7D8' }}>
       {/* ===== Top bar ===== */}
       <header
+        className="app-header"
         style={{
           position: 'sticky',
           top: 0,
           zIndex: 20,
           background: '#303078',
           color: '#F6F2EA',
-          padding: '16px 28px',
           display: 'flex',
           alignItems: 'center',
           gap: 18,
@@ -312,7 +324,7 @@ export default function App() {
       </header>
 
       {/* ===== Controls ===== */}
-      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '26px 28px 10px' }}>
+      <div className="app-container app-pad" style={{ paddingTop: 26, paddingBottom: 10 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '22px 30px' }}>
           <div style={{ flex: 1, minWidth: 260 }}>
             <h1
@@ -460,12 +472,9 @@ export default function App() {
 
         {/* toolbar */}
         <div
+          className="toolbar"
           style={{
             marginTop: 22,
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '18px 26px',
-            alignItems: 'center',
             padding: '14px 18px',
             background: '#F6F2EA',
             border: '1px solid #DCD3BD',
@@ -631,14 +640,8 @@ export default function App() {
       </div>
 
       {/* ===== Grid ===== */}
-      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '24px 28px 80px' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill,minmax(360px,1fr))',
-            gap: 26,
-          }}
-        >
+      <div className="app-container app-pad" style={{ paddingTop: 24, paddingBottom: 80 }}>
+        <div className="creatives-grid">
           {creatives.map((c, i) => (
             <CreativeCard
               key={c._key + '-' + i}

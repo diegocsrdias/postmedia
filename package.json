@@ -6,6 +6,7 @@
   "description": "Gerador de Criativos — Controle DinDin",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node scripts/dev-local.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

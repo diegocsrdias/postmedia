@@ -4,6 +4,11 @@
   box-sizing: border-box;
 }
 
+html {
+  /* evita zoom-out/rolagem horizontal acidental no mobile */
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   font-family:
     'Inter',
@@ -12,8 +17,105 @@ body {
     sans-serif;
   background: #eee7d8;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 button {
   font-family: inherit;
+}
+
+/* Impede que qualquer imagem/preview estoure a largura no mobile */
+img {
+  max-width: 100%;
+}
+
+/* ============================================================
+   Layout responsivo
+   Containers recebem estas classes no App.tsx.
+   ============================================================ */
+
+.app-container {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+/* Header */
+.app-header {
+  padding: 16px 28px;
+}
+
+/* Seções de controle e grid usam padding lateral generoso no desktop */
+.app-pad {
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
+/* Grid de criativos */
+.creatives-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 26px;
+}
+
+/* Barra de ferramentas (formato/tema/quantidade) */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 26px;
+  align-items: center;
+}
+
+/* ---- Tablet / telas médias ---- */
+@media (max-width: 720px) {
+  .app-header {
+    padding: 14px 16px;
+  }
+  .app-pad {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .creatives-grid {
+    /* uma coluna que nunca estoura a viewport */
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .toolbar {
+    gap: 14px 18px;
+  }
+  /* cada grupo da toolbar ocupa a linha inteira e alinha à esquerda */
+  .toolbar > * {
+    flex: 1 1 100%;
+  }
+}
+
+/* ---- Celular pequeno ---- */
+@media (max-width: 420px) {
+  .app-header {
+    padding: 12px 14px;
+  }
+  .app-pad {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  /* botões de ação empilham em vez de espremer */
+  .stack-sm {
+    flex-direction: column !important;
+  }
+  .stack-sm > button {
+    width: 100%;
+  }
+}
+
+/* Áreas roláveis horizontalmente (chips de tema) não empurram a página */
+.hscroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.hscroll::-webkit-scrollbar {
+  height: 6px;
+}
+.hscroll::-webkit-scrollbar-thumb {
+  background: #cbc3ad;
+  border-radius: 999px;
 }

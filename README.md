@@ -82,16 +82,22 @@ A chave **nunca** vai ao navegador — todas as chamadas à OpenAI acontecem
 dentro das funções. Ainda assim, use uma chave com **limite de gasto** definido
 na OpenAI, já que qualquer visitante do site pode acionar a geração.
 
-### Rodar o backend localmente (`vercel dev`)
+### Rodar o backend localmente
+
+Duas opções (ambas leem o `.env` — preencha `OPENAI_API_KEY` primeiro):
 
 ```bash
-npm i -g vercel      # uma vez
-cp .env.example .env  # e preencha OPENAI_API_KEY
-vercel dev            # sobe front + /api juntos (ex: http://localhost:3000)
+# Opção A — sem login na Vercel (recomendado p/ dev):
+npm run dev:api   # sobe Vite + /api juntos em http://localhost:3000
+
+# Opção B — idêntico à produção, exige `vercel login`:
+npm i -g vercel
+vercel dev
 ```
 
-`vercel dev` lê o `.env` e serve as funções em `/api`, então a IA funciona
-igual à produção.
+`npm run dev:api` roda um pequeno servidor ([scripts/dev-local.mjs](scripts/dev-local.mjs))
+que monta as **mesmas** funções de `api/*.js` em `/api`, então a IA funciona
+igual à produção — sem precisar autenticar na Vercel.
 
 ## Estrutura
 

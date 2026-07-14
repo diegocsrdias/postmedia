@@ -265,7 +265,7 @@ export function CreativeCard(props: Props) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
+        <div className="stack-sm" style={{ display: 'flex', gap: 10, marginTop: 2 }}>
           <button
             onClick={() => props.onCopy(idx)}
             style={{
