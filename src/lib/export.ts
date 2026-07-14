@@ -1,7 +1,11 @@
 import html2canvas from 'html2canvas'
 
 /** Baixa o nó do criativo como PNG (2x). */
-export async function downloadPng(node: HTMLElement, idx: number): Promise<void> {
+export async function downloadPng(
+  node: HTMLElement,
+  idx: number,
+  clientSlug: string = 'dindin',
+): Promise<void> {
   const prev = node.style.transform
   node.style.transform = 'none'
   try {
@@ -14,7 +18,7 @@ export async function downloadPng(node: HTMLElement, idx: number): Promise<void>
     node.style.transform = prev
     const a = document.createElement('a')
     a.href = canvas.toDataURL('image/png')
-    a.download = 'dindin-criativo-' + (idx + 1) + '.png'
+    a.download = clientSlug + '-criativo-' + (idx + 1) + '.png'
     a.click()
   } catch (err) {
     node.style.transform = prev
@@ -65,6 +69,7 @@ export async function downloadReels(
   idx: number,
   vcap: string,
   captionOn: boolean,
+  clientSlug: string = 'dindin',
 ): Promise<void> {
   const prev = node.style.transform
   node.style.transform = 'none'
@@ -116,7 +121,7 @@ export async function downloadReels(
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'dindin-reels-' + (idx + 1) + '.' + ext
+      a.download = clientSlug + '-reels-' + (idx + 1) + '.' + ext
       a.click()
       setTimeout(() => URL.revokeObjectURL(url), 4000)
       resolve()

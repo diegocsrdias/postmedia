@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
+import type { ClientConfig } from '../clients/types'
 import type { Creative, CreativeFields } from '../types'
-import { ANGLE_LABELS, EDIT_FIELDS, STRAT } from '../data/bank'
+import { ANGLE_LABELS, EDIT_FIELDS, STRAT } from '../data/shared'
 import { CreativeCanvas } from './CreativeCanvas'
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
   scaleStr: string
   innerW: number
   innerH: number
+  client: ClientConfig
   onEditField: (idx: number, key: keyof CreativeFields, val: string) => void
   onEditCaption: (idx: number, val: string) => void
   onEditVcap: (idx: number, val: string) => void
@@ -57,7 +59,7 @@ const textarea: CSSProperties = {
 }
 
 export function CreativeCard(props: Props) {
-  const { c, idx, square, isStory, frameW, frameH, scaleStr, innerW, innerH } = props
+  const { c, idx, square, isStory, frameW, frameH, scaleStr, innerW, innerH, client } = props
   const strat = STRAT[c.layout] ?? ({} as (typeof STRAT)[keyof typeof STRAT])
   const editFields = EDIT_FIELDS[c.layout] ?? []
 
@@ -100,6 +102,7 @@ export function CreativeCard(props: Props) {
             scaleStr={scaleStr}
             innerW={innerW}
             innerH={innerH}
+            client={client}
           />
 
           {/* botões flutuantes: fundo por IA (aparece em todo post, feed ou story) */}

@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import type { Creative, CreativeFields, Filter, Format } from './types'
-import { THEMES } from './data/bank'
-import { pickFresh, postTextOf } from './lib/creatives'
-import { generateAds, generateByTheme, generateImage } from './lib/api'
-import { copyText, downloadPng, downloadReels } from './lib/export'
 import { CreativeCard } from './components/CreativeCard'
-import logo from './assets/logo-dindin.png'
+import { CLIENT_LIST, DEFAULT_CLIENT, getClient } from './clients'
+import type { ClientId } from './clients'
+import { ANGLE_LABELS, ANGLE_ORDER } from './data/shared'
+import { generateAds, generateByTheme, generateImage } from './lib/api'
+import { pickFresh, postTextOf } from './lib/creatives'
+import { copyText, downloadPng, downloadReels } from './lib/export'
+import type { Creative, CreativeFields, Filter, Format } from './types'
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+function getInitialClientId(): ClientId {
+  if (typeof window === 'undefined') return DEFAULT_CLIENT
+  const stored = localStorage.getItem('creativeClientId')
+  return CLIENT_LIST.some((item) => item.id === stored) ? (stored as ClientId) : DEFAULT_CLIENT
+}
 
 function segStyle(on: boolean): CSSProperties {
   return {
@@ -30,6 +37,7 @@ const monoLabel: CSSProperties = {
   textTransform: 'uppercase',
   color: '#8B8BA8',
 }
+
 /** Converte um erro de chamada de IA numa mensagem curta para o toast. */
 function aiError(err: unknown): string {
   const msg = String((err as Error)?.message || err || '')
@@ -40,16 +48,30 @@ function aiError(err: unknown): string {
 }
 
 export default function App() {
+  const [clientId, setClientId] = useState<ClientId>(getInitialClientId)
+  const client = useMemo(() => getClient(clientId), [clientId])
+
   const [format, setFormat] = useState<Format>('square')
   const [filter, setFilter] = useState<Filter>('all')
   const [count, setCount] = useState(4)
   const [videoCaptionOn, setVideoCaptionOn] = useState(true)
   const [theme, setTheme] = useState('')
   const [generating, setGenerating] = useState(false)
-  const [creatives, setCreatives] = useState<Creative[]>(() => pickFresh(4, 'all', []))
+  const [creatives, setCreatives] = useState<Creative[]>(() =>
+    pickFresh(getClient(getInitialClientId()).bank, 4, 'all', []),
+  )
   const [toast, setToast] = useState('')
   const toastTimer = useRef<number | undefined>(undefined)
   const recording = useRef(false)
+
+  const availableAngles = useMemo(() => {
+    const angleSet = new Set(client.bank.map((item) => item.angle))
+    return ANGLE_ORDER.filter((angle) => angle !== 'anuncio' && angleSet.has(angle))
+  }, [client])
+
+  useEffect(() => {
+    localStorage.setItem('creativeClientId', clientId)
+  }, [clientId])
 
   // largura da viewport — usada para dimensionar o preview no mobile
   const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1200))
@@ -79,10 +101,10 @@ export default function App() {
         void generateAdsAI(nextCount, null)
         return
       }
-      setCreatives(pickFresh(nextCount, nextFilter, []))
+      setCreatives(pickFresh(client.bank, nextCount, nextFilter, []))
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filter, count],
+    [client, filter, count],
   )
 
   async function generateAdsAI(n: number, replaceIdx: number | null) {
@@ -94,7 +116,7 @@ export default function App() {
       .map((c) => c.f.headline + ' ' + c.f.highlight)
       .join(' | ')
     try {
-      const fresh = await generateAds(n, existing)
+      const fresh = await generateAds(n, existing, client.id)
       setCreatives((prev) => {
         if (replaceIdx != null) {
           const a = prev.slice()
@@ -120,7 +142,7 @@ export default function App() {
     setGenerating(true)
     flash('Criando com IA… ⏳')
     try {
-      const fresh = await generateByTheme(count, t)
+      const fresh = await generateByTheme(count, t, client.id)
       setCreatives(fresh)
       flash('Pronto! ' + fresh.length + ' criativos sobre "' + t + '" 🎉')
     } catch (err) {
@@ -137,6 +159,21 @@ export default function App() {
     void runTheme(t)
   }
 
+  useEffect(() => {
+    const angleSet = new Set(client.bank.map((item) => item.angle))
+    if (filter !== 'all' && filter !== 'anuncio' && !angleSet.has(filter)) {
+      setFilter('all')
+      setCreatives(pickFresh(client.bank, count, 'all', []))
+      return
+    }
+    if (filter === 'anuncio') {
+      void generateAdsAI(count, null)
+      return
+    }
+    setCreatives(pickFresh(client.bank, count, filter, []))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
+
   const regenerateOne = (idx: number) => {
     const cur = creatives[idx]
     if (cur && cur.layout === 'ad') {
@@ -144,7 +181,7 @@ export default function App() {
       return
     }
     const used = creatives.map((c) => c._key)
-    const fresh = pickFresh(1, filter, used)[0]
+    const fresh = pickFresh(client.bank, 1, filter, used)[0]
     if (!fresh || fresh._key === cur._key) {
       flash('Só existe este modelo no tema por enquanto 😉')
       return
@@ -193,7 +230,7 @@ export default function App() {
     }
     flash('Gerando PNG…')
     try {
-      await downloadPng(node, idx)
+      await downloadPng(node, idx, client.id)
       flash('PNG baixado! 🐷')
     } catch {
       flash('Erro ao gerar imagem')
@@ -210,7 +247,7 @@ export default function App() {
     recording.current = true
     flash('Gravando vídeo… ~6s')
     try {
-      await downloadReels(node, idx, creatives[idx].vcap, videoCaptionOn)
+      await downloadReels(node, idx, creatives[idx].vcap, videoCaptionOn, client.id)
       flash('Vídeo baixado! 🎬')
     } catch {
       flash('Erro ao gerar vídeo')
@@ -226,7 +263,7 @@ export default function App() {
     try {
       const cur = creatives[idx]
       const postText = postTextOf(cur)
-      const { image: img, idea } = await generateImage(postText, format)
+      const { image: img, idea } = await generateImage(postText, format, client.id)
       setCreatives((prev) => {
         const a = prev.slice()
         a[idx] = { ...a[idx], bgImage: img, bgPrompt: idea }
@@ -278,8 +315,8 @@ export default function App() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img
-            src={logo}
-            alt="DinDin"
+            src={client.images.logo}
+            alt={client.name}
             style={{ width: 44, height: 44, objectFit: 'contain' }}
           />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.05 }}>
@@ -295,9 +332,42 @@ export default function App() {
                 color: '#C0D830',
               }}
             >
-              Controle DinDin
+              {client.name}
             </span>
           </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 220 }}>
+          <span
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: '#B8B8D8',
+            }}
+          >
+            Cliente
+          </span>
+          <select
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value as ClientId)}
+            style={{
+              border: '1px solid rgba(255,255,255,0.14)',
+              background: '#1F1F4F',
+              color: '#F6F2EA',
+              borderRadius: 999,
+              padding: '9px 14px',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {CLIENT_LIST.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div style={{ flex: 1 }} />
         <span
@@ -387,7 +457,7 @@ export default function App() {
           </div>
           <p style={{ margin: '0 0 12px', fontSize: 13, color: '#4A4A6A', maxWidth: 640 }}>
             Digite um assunto do momento (copie do Google Trends ou da aba de buscas do TikTok) e a
-            IA cria criativos amarrando o tema ao Controle DinDin.
+            IA cria criativos amarrando o tema a {client.name}.
           </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <input
@@ -434,7 +504,7 @@ export default function App() {
             }}
           >
             <span style={monoLabel}>Quentes agora:</span>
-            {THEMES.map((chip) => (
+            {client.themes.map((chip) => (
               <button
                 key={chip.theme}
                 onClick={() => useChip(chip.theme)}
@@ -503,12 +573,11 @@ export default function App() {
               }}
             >
               <option value="all">Todos os temas</option>
-              <option value="dica">Dicas rápidas</option>
-              <option value="recurso">Recursos do app</option>
-              <option value="pergunta">Perguntas p/ comentários</option>
-              <option value="frase">Frases motivacionais</option>
-              <option value="mito">Mitos vs verdades</option>
-              <option value="antibet">🚫 Anti-bet (posicionamento)</option>
+              {availableAngles.map((angle) => (
+                <option key={angle} value={angle}>
+                  {ANGLE_LABELS[angle]}
+                </option>
+              ))}
               <option value="anuncio">📣 Anúncio (propaganda)</option>
             </select>
           </div>
@@ -643,14 +712,15 @@ export default function App() {
               scaleStr={scaleStr}
               innerW={innerW}
               innerH={innerH}
+              client={client}
               onEditField={editField}
               onEditCaption={editCaption}
               onEditVcap={editVcap}
               onRegen={regenerateOne}
-              onCopy={(idx) => void copyCaption(idx)}
-              onDownload={(idx) => void doDownload(idx)}
-              onVideo={(idx) => void doVideo(idx)}
-              onGenImage={(idx) => void genImage(idx)}
+              onCopy={(cardIdx) => void copyCaption(cardIdx)}
+              onDownload={(cardIdx) => void doDownload(cardIdx)}
+              onVideo={(cardIdx) => void doVideo(cardIdx)}
+              onGenImage={(cardIdx) => void genImage(cardIdx)}
               onClearImage={clearImage}
               busy={generating}
             />

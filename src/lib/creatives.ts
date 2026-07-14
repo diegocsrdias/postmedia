@@ -1,5 +1,4 @@
 import type { Concept, Creative, CreativeFields, Filter, Layout } from '../types'
-import { BANK } from '../data/bank'
 
 /** Deriva a frase curta do vídeo (vcap) a partir do layout e campos. */
 export function deriveVcap(layout: Layout, f: CreativeFields): string {
@@ -22,8 +21,8 @@ export function shuffle<T>(a: T[]): T[] {
   return b
 }
 
-export function pool(filter: Filter): Concept[] {
-  return filter === 'all' ? BANK : BANK.filter((x) => x.angle === filter)
+export function pool(bank: Concept[], filter: Filter): Concept[] {
+  return filter === 'all' ? bank : bank.filter((x) => x.angle === filter)
 }
 
 export function keyOf(c: Concept): string {
@@ -50,10 +49,20 @@ export function instantiate(concept: Concept): Creative {
  * Seleciona `n` criativos frescos do pool filtrado, evitando as chaves em
  * `excludeKeys` e deduplicando por conteúdo.
  */
-export function pickFresh(n: number, filter: Filter, excludeKeys: string[] = []): Creative[] {
+/**
+ * Seleciona `n` criativos frescos do pool filtrado (dentro do banco do
+ * cliente ativo), evitando as chaves em `excludeKeys` e deduplicando por
+ * conteúdo.
+ */
+export function pickFresh(
+  bank: Concept[],
+  n: number,
+  filter: Filter,
+  excludeKeys: string[] = [],
+): Creative[] {
   const used = excludeKeys
-  let cand = shuffle(pool(filter)).filter((x) => !used.includes(keyOf(x)))
-  if (!cand.length) cand = shuffle(pool(filter))
+  let cand = shuffle(pool(bank, filter)).filter((x) => !used.includes(keyOf(x)))
+  if (!cand.length) cand = shuffle(pool(bank, filter))
   const seen: string[] = []
   const out: Concept[] = []
   for (const x of cand) {

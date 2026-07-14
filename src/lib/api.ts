@@ -6,7 +6,7 @@
  */
 
 import type { Creative, Format } from '../types'
-import { EDIT_FIELDS } from '../data/bank'
+import { EDIT_FIELDS } from '../data/shared'
 import { deriveVcap } from './creatives'
 
 const BASE = import.meta.env.VITE_API_BASE || '/api'
@@ -25,10 +25,15 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 /** Gera `n` conceitos de ANÚNCIO via backend. */
-export async function generateAds(n: number, existingHeadlines: string): Promise<Creative[]> {
+export async function generateAds(
+  n: number,
+  existingHeadlines: string,
+  clientId: string,
+): Promise<Creative[]> {
   const { items } = await post<{ items: RawAd[] }>('generate-ads', {
     n,
     existingHeadlines,
+    clientId,
   })
   const fresh = (items || [])
     .filter((x) => x && x.f && x.f.headline)
@@ -40,7 +45,7 @@ export async function generateAds(n: number, existingHeadlines: string): Promise
         angle: 'anuncio' as const,
         f,
         caption: x.caption || '',
-        hashtags: x.hashtags || '#ControleDinDin',
+        hashtags: x.hashtags || '',
         vcap: (x.vcap && String(x.vcap).trim()) || deriveVcap('ad', f),
         _key: 'ad-ai-' + Date.now() + '-' + i,
       }
@@ -50,10 +55,15 @@ export async function generateAds(n: number, existingHeadlines: string): Promise
 }
 
 /** Gera `n` criativos amarrando um tema em alta via backend. */
-export async function generateByTheme(n: number, theme: string): Promise<Creative[]> {
+export async function generateByTheme(
+  n: number,
+  theme: string,
+  clientId: string,
+): Promise<Creative[]> {
   const { items } = await post<{ items: RawThemed[] }>('generate-theme', {
     n,
     theme,
+    clientId,
   })
   const valid = (items || []).filter((x) => x && x.layout && EDIT_FIELDS[x.layout] && x.f)
   if (!valid.length) throw new Error('empty')
@@ -65,7 +75,7 @@ export async function generateByTheme(n: number, theme: string): Promise<Creativ
       angle: 'tema' as const,
       f,
       caption: x.caption || '',
-      hashtags: x.hashtags || '#ControleDinDin',
+      hashtags: x.hashtags || '',
       vcap: (x.vcap && String(x.vcap).trim()) || deriveVcap(layout, f),
       _key: 'tema-' + i + '-' + Math.random().toString(36).slice(2, 7),
     }
@@ -81,8 +91,9 @@ export async function generateByTheme(n: number, theme: string): Promise<Creativ
 export async function generateImage(
   postText: string,
   format: Format,
+  clientId: string,
 ): Promise<{ image: string; idea: string }> {
-  return post<{ image: string; idea: string }>('generate-image', { postText, format })
+  return post<{ image: string; idea: string }>('generate-image', { postText, format, clientId })
 }
 
 interface RawAd {

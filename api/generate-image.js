@@ -1,5 +1,6 @@
 import { chat, image, preflight, readJson } from './_lib/openai.js'
 import { imageIdeaPrompt, imagePrompt } from './_lib/prompts.js'
+import { getClient } from './_lib/clients.js'
 
 const SIZES = {
   square: '1024x1024',
@@ -28,7 +29,8 @@ function randomStyleHint() {
 export default async function handler(req, res) {
   if (preflight(req, res)) return
   try {
-    const { postText = '', idea = '', format = 'square' } = await readJson(req)
+    const { postText = '', idea = '', format = 'square', clientId = '' } = await readJson(req)
+    const client = getClient(clientId)
     const rawText = String(postText || idea || '').trim()
     if (!rawText) {
       res.status(400).json({ error: 'Post vazio' })
@@ -38,7 +40,7 @@ export default async function handler(req, res) {
     // 1) IA de texto sugere uma cena que faça sentido com o conteúdo do post
     //    (sorteando um direcionamento de estilo pra não repetir sempre a mesma composição).
     const hint = randomStyleHint()
-    const { system, user } = imageIdeaPrompt(rawText, hint)
+    const { system, user } = imageIdeaPrompt(rawText, hint, client)
     let sceneIdea = rawText
     try {
       const raw = await chat({ system, user, maxTokens: 200, temperature: 1.05 })
@@ -52,7 +54,7 @@ export default async function handler(req, res) {
 
     // 2) IA de imagem gera o fundo com base na cena sugerida
     const size = SIZES[format] || SIZES.square
-    const dataUrl = await image({ prompt: imagePrompt(sceneIdea), size })
+    const dataUrl = await image({ prompt: imagePrompt(sceneIdea, client), size })
     res.status(200).json({ image: dataUrl, idea: sceneIdea })
   } catch (err) {
     res.status(502).json({ error: String(err?.message || err) })
