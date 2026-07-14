@@ -55,7 +55,7 @@ export default function App() {
   const [format, setFormat] = useState<Format>('square')
   const [filter, setFilter] = useState<Filter>('all')
   const [count, setCount] = useState(4)
-  const [videoCaptionOn, setVideoCaptionOn] = useState(true)
+  const [videoCaptionOn, setVideoCaptionOn] = useState(false)
   const [theme, setTheme] = useState('')
   const [generating, setGenerating] = useState(false)
   const [creatives, setCreatives] = useState<Creative[]>(() =>
