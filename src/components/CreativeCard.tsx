@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import type { ClientConfig } from '../clients/types'
 import type { Creative, CreativeFields } from '../types'
 import { ANGLE_LABELS, EDIT_FIELDS, STRAT } from '../data/shared'
+import { UI } from '../ui/theme'
 import { CreativeCanvas } from './CreativeCanvas'
 
 interface Props {
@@ -31,8 +32,8 @@ const pill: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
   background: '#fff',
-  border: '1px solid #DCD3BD',
-  color: '#303078',
+  border: '1px solid ' + UI.border,
+  color: UI.ink,
   padding: '3px 9px',
   borderRadius: 999,
 }
@@ -42,16 +43,16 @@ const fieldLabel: CSSProperties = {
   fontSize: 9,
   letterSpacing: '0.12em',
   textTransform: 'uppercase',
-  color: '#8B8BA8',
+  color: UI.inkMuted2,
 }
 
 const textarea: CSSProperties = {
   width: '100%',
-  border: '1px solid #DCD3BD',
+  border: '1px solid ' + UI.border,
   borderRadius: 8,
   padding: '8px 10px',
   fontSize: 13,
-  color: '#14142B',
+  color: UI.ink,
   background: '#fff',
   lineHeight: 1.35,
   resize: 'vertical',
@@ -66,11 +67,11 @@ export function CreativeCard(props: Props) {
   return (
     <div
       style={{
-        background: '#F6F2EA',
-        border: '1px solid #DCD3BD',
+        background: UI.surface,
+        border: '1px solid ' + UI.border,
         borderRadius: 18,
         overflow: 'hidden',
-        boxShadow: '0 4px 12px rgba(20,20,43,.06)',
+        boxShadow: '0 4px 12px rgba(0,0,0,.06)',
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -78,7 +79,7 @@ export function CreativeCard(props: Props) {
       {/* preview */}
       <div
         style={{
-          background: '#E4DAC4',
+          background: UI.surfaceAlt,
           padding: 20,
           display: 'flex',
           justifyContent: 'center',
@@ -90,7 +91,7 @@ export function CreativeCard(props: Props) {
             height: frameH,
             overflow: 'hidden',
             borderRadius: 10,
-            boxShadow: '0 8px 24px rgba(20,20,43,.18)',
+            boxShadow: '0 8px 24px rgba(0,0,0,.18)',
             flex: 'none',
             position: 'relative',
           }}
@@ -125,8 +126,8 @@ export function CreativeCard(props: Props) {
                   height: 30,
                   borderRadius: '50%',
                   border: 'none',
-                  background: 'rgba(20,20,43,0.65)',
-                  color: '#F6F2EA',
+                  background: 'rgba(0,0,0,0.6)',
+                  color: '#fff',
                   fontSize: 14,
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -147,8 +148,8 @@ export function CreativeCard(props: Props) {
                 padding: '0 12px',
                 borderRadius: 999,
                 border: 'none',
-                background: 'rgba(20,20,43,0.65)',
-                color: '#C0D830',
+                background: 'rgba(0,0,0,0.6)',
+                color: '#fff',
                 fontWeight: 700,
                 fontSize: 12,
                 display: 'flex',
@@ -174,30 +175,30 @@ export function CreativeCard(props: Props) {
               fontSize: 10,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              background: '#EEE7D8',
-              color: '#4A4A6A',
+              background: UI.surfaceAlt,
+              color: UI.inkMuted,
               padding: '5px 10px',
               borderRadius: 999,
             }}
           >
             {ANGLE_LABELS[c.angle] ?? c.angle}
           </span>
-          <span style={{ fontSize: 12, color: '#8B8BA8' }}>·</span>
-          <span style={{ fontSize: 12, color: '#8B8BA8', fontWeight: 600 }}>Facebook</span>
-          <span style={{ fontSize: 12, color: '#8B8BA8', fontWeight: 600 }}>Instagram</span>
-          <span style={{ fontSize: 12, color: '#8B8BA8', fontWeight: 600 }}>TikTok</span>
+          <span style={{ fontSize: 12, color: UI.inkMuted2 }}>·</span>
+          <span style={{ fontSize: 12, color: UI.inkMuted2, fontWeight: 600 }}>Facebook</span>
+          <span style={{ fontSize: 12, color: UI.inkMuted2, fontWeight: 600 }}>Instagram</span>
+          <span style={{ fontSize: 12, color: UI.inkMuted2, fontWeight: 600 }}>TikTok</span>
           <div style={{ flex: 1 }} />
           <button
             onClick={() => props.onRegen(idx)}
             title="Trocar por outro"
             style={{
               background: 'none',
-              border: '1px solid #DCD3BD',
+              border: '1px solid ' + UI.border,
               borderRadius: 8,
               padding: '6px 10px',
               fontSize: 13,
               fontWeight: 600,
-              color: '#4A4A6A',
+              color: UI.inkMuted,
               cursor: 'pointer',
             }}
           >
@@ -208,7 +209,7 @@ export function CreativeCard(props: Props) {
         {/* strategy strip */}
         <div
           style={{
-            background: '#EEE7D8',
+            background: UI.surfaceAlt,
             borderRadius: 10,
             padding: '10px 12px',
             display: 'flex',
@@ -221,9 +222,9 @@ export function CreativeCard(props: Props) {
             <span style={pill}>{strat.bpm}</span>
             <span style={pill}>🎯 {strat.goal}</span>
           </div>
-          <div style={{ fontSize: 12, color: '#4A4A6A', lineHeight: 1.4 }}>
-            <strong style={{ color: '#14142B' }}>Gancho 2s:</strong> {strat.hook} ·{' '}
-            <strong style={{ color: '#14142B' }}>Melhor em:</strong> {strat.plat}
+          <div style={{ fontSize: 12, color: UI.inkMuted, lineHeight: 1.4 }}>
+            <strong style={{ color: UI.ink }}>Gancho 2s:</strong> {strat.hook} ·{' '}
+            <strong style={{ color: UI.ink }}>Melhor em:</strong> {strat.plat}
           </div>
         </div>
 
@@ -245,7 +246,7 @@ export function CreativeCard(props: Props) {
         {/* caption */}
         <div
           style={{
-            borderTop: '1px solid #E8E0CC',
+            borderTop: '1px solid ' + UI.border,
             paddingTop: 12,
             display: 'flex',
             flexDirection: 'column',
@@ -260,7 +261,7 @@ export function CreativeCard(props: Props) {
             style={{ ...textarea, lineHeight: 1.45 }}
           />
           <div
-            style={{ fontSize: 12, color: '#4A4A6A', lineHeight: 1.4, wordBreak: 'break-word' }}
+            style={{ fontSize: 12, color: UI.inkMuted, lineHeight: 1.4, wordBreak: 'break-word' }}
           >
             {c.hashtags}
           </div>
@@ -271,8 +272,8 @@ export function CreativeCard(props: Props) {
             onClick={() => props.onCopy(idx)}
             style={{
               flex: 1,
-              background: '#303078',
-              color: '#F6F2EA',
+              background: UI.dark,
+              color: UI.darkText,
               border: 'none',
               borderRadius: 10,
               padding: 11,
@@ -287,9 +288,9 @@ export function CreativeCard(props: Props) {
             onClick={() => props.onDownload(idx)}
             style={{
               flex: 1,
-              background: '#C0D830',
-              color: '#303078',
-              border: 'none',
+              background: '#fff',
+              color: UI.ink,
+              border: '1px solid ' + UI.ink,
               borderRadius: 10,
               padding: 11,
               fontWeight: 800,
@@ -307,7 +308,7 @@ export function CreativeCard(props: Props) {
               display: 'flex',
               flexDirection: 'column',
               gap: 8,
-              borderTop: '1px dashed #DCD3BD',
+              borderTop: '1px dashed ' + UI.border,
               paddingTop: 12,
             }}
           >
@@ -323,9 +324,9 @@ export function CreativeCard(props: Props) {
             <button
               onClick={() => props.onVideo(idx)}
               style={{
-                background: '#303078',
-                color: '#C0D830',
-                border: '2px solid #C0D830',
+                background: UI.dark,
+                color: UI.darkText,
+                border: '2px solid ' + UI.darkBorder,
                 borderRadius: 10,
                 padding: 11,
                 fontWeight: 800,

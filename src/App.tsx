@@ -8,6 +8,7 @@ import { generateAds, generateByTheme, generateImage } from './lib/api'
 import { pickFresh, postTextOf } from './lib/creatives'
 import { copyText, downloadPng, downloadReels } from './lib/export'
 import type { Creative, CreativeFields, Filter, Format } from './types'
+import { UI } from './ui/theme'
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
@@ -25,8 +26,8 @@ function segStyle(on: boolean): CSSProperties {
     fontSize: 13,
     fontWeight: 700,
     cursor: 'pointer',
-    background: on ? '#303078' : 'transparent',
-    color: on ? '#F6F2EA' : '#4A4A6A',
+    background: on ? UI.dark : 'transparent',
+    color: on ? UI.darkText : UI.inkMuted,
   }
 }
 
@@ -35,7 +36,7 @@ const monoLabel: CSSProperties = {
   fontSize: 10,
   letterSpacing: '0.14em',
   textTransform: 'uppercase',
-  color: '#8B8BA8',
+  color: UI.inkMuted2,
 }
 
 /** Converte um erro de chamada de IA numa mensagem curta para o toast. */
@@ -297,7 +298,7 @@ export default function App() {
   const scaleStr = scale.toFixed(4)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#EEE7D8' }}>
+    <div style={{ minHeight: '100vh', background: UI.bg }}>
       {/* ===== Top bar ===== */}
       <header
         className="app-header"
@@ -305,12 +306,12 @@ export default function App() {
           position: 'sticky',
           top: 0,
           zIndex: 20,
-          background: '#303078',
-          color: '#F6F2EA',
+          background: UI.dark,
+          color: UI.darkText,
           display: 'flex',
           alignItems: 'center',
           gap: 18,
-          boxShadow: '0 4px 12px rgba(20,20,43,.12)',
+          boxShadow: '0 4px 12px rgba(0,0,0,.18)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -329,7 +330,7 @@ export default function App() {
                 fontSize: 11,
                 letterSpacing: '0.16em',
                 textTransform: 'uppercase',
-                color: '#C0D830',
+                color: UI.darkTextMuted2,
               }}
             >
               {client.name}
@@ -343,7 +344,7 @@ export default function App() {
               fontSize: 10,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              color: '#B8B8D8',
+              color: UI.darkTextMuted,
             }}
           >
             Cliente
@@ -353,8 +354,8 @@ export default function App() {
             onChange={(e) => setClientId(e.target.value as ClientId)}
             style={{
               border: '1px solid rgba(255,255,255,0.14)',
-              background: '#1F1F4F',
-              color: '#F6F2EA',
+              background: UI.darkAlt,
+              color: UI.darkText,
               borderRadius: 999,
               padding: '9px 14px',
               fontSize: 13,
@@ -374,7 +375,7 @@ export default function App() {
           style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: 12,
-            color: '#B8B8D8',
+            color: UI.darkTextMuted,
             letterSpacing: '0.08em',
           }}
         >
@@ -392,12 +393,12 @@ export default function App() {
                 fontSize: 30,
                 fontWeight: 800,
                 letterSpacing: '-0.03em',
-                color: '#14142B',
+                color: UI.ink,
               }}
             >
               Criativos de hoje
             </h1>
-            <p style={{ margin: 0, color: '#4A4A6A', fontSize: 15, maxWidth: 560 }}>
+            <p style={{ margin: 0, color: UI.inkMuted, fontSize: 15, maxWidth: 560 }}>
               Gere posts prontos pra Facebook, Instagram e TikTok. Ajuste o texto, copie a legenda e
               baixe a arte em PNG.
             </p>
@@ -408,15 +409,15 @@ export default function App() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: 10,
-              background: '#C0D830',
-              color: '#303078',
+              background: UI.dark,
+              color: UI.darkText,
               border: 'none',
               borderRadius: 999,
               padding: '15px 28px',
               fontWeight: 800,
               fontSize: 16,
               cursor: 'pointer',
-              boxShadow: '0 8px 20px rgba(157,179,32,.35)',
+              boxShadow: '0 8px 20px rgba(0,0,0,.18)',
             }}
           >
             <span style={{ fontSize: 19 }}>🎲</span> Gerar {count} criativos
@@ -427,8 +428,8 @@ export default function App() {
         <div
           style={{
             marginTop: 22,
-            background: '#F6F2EA',
-            border: '2px solid #C0D830',
+            background: UI.surface,
+            border: '2px solid ' + UI.border,
             borderRadius: 14,
             padding: '18px 20px',
           }}
@@ -436,7 +437,7 @@ export default function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: 17 }}>✨</span>
             <span
-              style={{ fontWeight: 800, fontSize: 16, color: '#14142B', letterSpacing: '-0.02em' }}
+              style={{ fontWeight: 800, fontSize: 16, color: UI.ink, letterSpacing: '-0.02em' }}
             >
               Criar em cima de um tema em alta
             </span>
@@ -446,8 +447,8 @@ export default function App() {
                 fontSize: 9,
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
-                background: '#303078',
-                color: '#C0D830',
+                background: UI.dark,
+                color: UI.darkText,
                 padding: '3px 8px',
                 borderRadius: 999,
               }}
@@ -455,7 +456,7 @@ export default function App() {
               com IA
             </span>
           </div>
-          <p style={{ margin: '0 0 12px', fontSize: 13, color: '#4A4A6A', maxWidth: 640 }}>
+          <p style={{ margin: '0 0 12px', fontSize: 13, color: UI.inkMuted, maxWidth: 640 }}>
             Digite um assunto do momento (copie do Google Trends ou da aba de buscas do TikTok) e a
             IA cria criativos amarrando o tema a {client.name}.
           </p>
@@ -467,20 +468,20 @@ export default function App() {
               style={{
                 flex: 1,
                 minWidth: 240,
-                border: '1px solid #DCD3BD',
+                border: '1px solid ' + UI.border,
                 background: '#fff',
                 borderRadius: 10,
                 padding: '12px 14px',
                 fontSize: 14,
-                color: '#14142B',
+                color: UI.ink,
               }}
             />
             <button
               onClick={() => void generateWithTheme()}
               disabled={generating}
               style={{
-                background: '#303078',
-                color: '#C0D830',
+                background: UI.dark,
+                color: UI.darkText,
                 border: 'none',
                 borderRadius: 10,
                 padding: '12px 22px',
@@ -510,12 +511,12 @@ export default function App() {
                 onClick={() => useChip(chip.theme)}
                 style={{
                   background: '#fff',
-                  border: '1px solid #DCD3BD',
+                  border: '1px solid ' + UI.border,
                   borderRadius: 999,
                   padding: '6px 13px',
                   fontSize: 13,
                   fontWeight: 600,
-                  color: '#303078',
+                  color: UI.ink,
                   cursor: 'pointer',
                 }}
               >
@@ -523,7 +524,7 @@ export default function App() {
               </button>
             ))}
           </div>
-          <p style={{ margin: '12px 0 0', fontSize: 11, color: '#8B8BA8' }}>
+          <p style={{ margin: '12px 0 0', fontSize: 11, color: UI.inkMuted2 }}>
             💡 Trends mudam todo dia — confira o Google Trends / TikTok do dia e cole o assunto aqui
             pra sempre pegar o hype fresco.
           </p>
@@ -535,14 +536,14 @@ export default function App() {
           style={{
             marginTop: 22,
             padding: '14px 18px',
-            background: '#F6F2EA',
-            border: '1px solid #DCD3BD',
+            background: UI.surface,
+            border: '1px solid ' + UI.border,
             borderRadius: 14,
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={monoLabel}>Formato</span>
-            <div style={{ display: 'flex', background: '#EEE7D8', borderRadius: 999, padding: 3 }}>
+            <div style={{ display: 'flex', background: UI.surfaceAlt, borderRadius: 999, padding: 3 }}>
               <button onClick={() => setFormat('square')} style={segStyle(square)}>
                 Feed 1:1
               </button>
@@ -561,13 +562,13 @@ export default function App() {
                 generateAll(v, count)
               }}
               style={{
-                border: '1px solid #DCD3BD',
+                border: '1px solid ' + UI.border,
                 background: '#fff',
                 borderRadius: 999,
                 padding: '9px 16px',
                 fontSize: 14,
                 fontWeight: 600,
-                color: '#14142B',
+                color: UI.ink,
                 cursor: 'pointer',
                 minWidth: 170,
               }}
@@ -583,7 +584,7 @@ export default function App() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={monoLabel}>Quantidade</span>
-            <div style={{ display: 'flex', background: '#EEE7D8', borderRadius: 999, padding: 3 }}>
+            <div style={{ display: 'flex', background: UI.surfaceAlt, borderRadius: 999, padding: 3 }}>
               {[3, 4, 6].map((n) => (
                 <button
                   key={n}
@@ -604,10 +605,10 @@ export default function App() {
         <div
           style={{
             marginTop: 16,
-            background: '#303078',
+            background: UI.dark,
             borderRadius: 16,
             padding: '22px 24px',
-            color: '#F6F2EA',
+            color: UI.darkText,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
@@ -663,7 +664,7 @@ export default function App() {
             style={{
               marginTop: 18,
               paddingTop: 16,
-              borderTop: '1px solid #4848A0',
+              borderTop: '1px solid ' + UI.darkBorder,
               display: 'flex',
               alignItems: 'center',
               gap: 14,
@@ -676,12 +677,12 @@ export default function App() {
                 fontSize: 10,
                 letterSpacing: '0.14em',
                 textTransform: 'uppercase',
-                color: '#B8B8D8',
+                color: UI.darkTextMuted,
               }}
             >
               Legenda no vídeo
             </span>
-            <div style={{ display: 'flex', background: '#1F1F4F', borderRadius: 999, padding: 3 }}>
+            <div style={{ display: 'flex', background: UI.darkAlt, borderRadius: 999, padding: 3 }}>
               <button onClick={() => setVideoCaptionOn(true)} style={segStyle(videoCaptionOn)}>
                 Ligada
               </button>
@@ -689,7 +690,7 @@ export default function App() {
                 Desligada
               </button>
             </div>
-            <span style={{ fontSize: 12, color: '#B8B8D8' }}>
+            <span style={{ fontSize: 12, color: UI.darkTextMuted }}>
               Grava o texto principal na tela do Reels, palavra por palavra — quem assiste não
               precisa abrir a descrição.
             </span>
@@ -736,13 +737,13 @@ export default function App() {
             bottom: 28,
             left: '50%',
             transform: 'translateX(-50%)',
-            background: '#14142B',
-            color: '#F6F2EA',
+            background: UI.dark,
+            color: UI.darkText,
             padding: '13px 24px',
             borderRadius: 999,
             fontWeight: 600,
             fontSize: 14,
-            boxShadow: '0 12px 32px rgba(20,20,43,.3)',
+            boxShadow: '0 12px 32px rgba(0,0,0,.3)',
             zIndex: 50,
           }}
         >
@@ -762,7 +763,7 @@ function StrategyCol({ title, items }: { title: string; items: ReactNode[] }) {
           fontSize: 10,
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
-          color: '#C0D830',
+          color: UI.darkTextMuted2,
           marginBottom: 8,
         }}
       >
@@ -774,7 +775,7 @@ function StrategyCol({ title, items }: { title: string; items: ReactNode[] }) {
           paddingLeft: 18,
           fontSize: 13,
           lineHeight: 1.55,
-          color: '#D5D5EC',
+          color: UI.darkTextMuted2,
         }}
       >
         {items.map((it, i) => (

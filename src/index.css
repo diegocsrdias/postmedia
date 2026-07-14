@@ -15,7 +15,7 @@ body {
     -apple-system,
     BlinkMacSystemFont,
     sans-serif;
-  background: #eee7d8;
+  background: #f4f4f5;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -116,6 +116,6 @@ img {
   height: 6px;
 }
 .hscroll::-webkit-scrollbar-thumb {
-  background: #cbc3ad;
+  background: #d4d4d8;
   border-radius: 999px;
 }
