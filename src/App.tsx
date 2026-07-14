@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { Creative, CreativeFields, Filter, Format } from './types'
 import { THEMES } from './data/bank'
-import { pickFresh } from './lib/creatives'
+import { pickFresh, postTextOf } from './lib/creatives'
 import { generateAds, generateByTheme, generateImage } from './lib/api'
 import { copyText, downloadPng, downloadReels } from './lib/export'
 import { CreativeCard } from './components/CreativeCard'
@@ -219,25 +219,14 @@ export default function App() {
     }
   }
 
-  const editBgPrompt = (idx: number, val: string) =>
-    setCreatives((prev) => {
-      const a = prev.slice()
-      a[idx] = { ...a[idx], bgPrompt: val }
-      return a
-    })
-
   const genImage = async (idx: number) => {
-    const cur = creatives[idx]
-    const idea = (cur.bgPrompt || cur.vcap || '').trim()
-    if (!idea) {
-      flash('Descreva a imagem primeiro')
-      return
-    }
     if (generating) return
     setGenerating(true)
     flash('Gerando imagem com IA… ⏳ (pode levar ~15s)')
     try {
-      const img = await generateImage(idea, format)
+      const cur = creatives[idx]
+      const postText = postTextOf(cur)
+      const { image: img, idea } = await generateImage(postText, format)
       setCreatives((prev) => {
         const a = prev.slice()
         a[idx] = { ...a[idx], bgImage: img, bgPrompt: idea }
@@ -661,7 +650,6 @@ export default function App() {
               onCopy={(idx) => void copyCaption(idx)}
               onDownload={(idx) => void doDownload(idx)}
               onVideo={(idx) => void doVideo(idx)}
-              onEditBgPrompt={editBgPrompt}
               onGenImage={(idx) => void genImage(idx)}
               onClearImage={clearImage}
               busy={generating}

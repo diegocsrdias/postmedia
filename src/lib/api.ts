@@ -72,10 +72,17 @@ export async function generateByTheme(n: number, theme: string): Promise<Creativ
   })
 }
 
-/** Gera uma imagem de fundo por IA; retorna data URL (PNG). */
-export async function generateImage(idea: string, format: Format): Promise<string> {
-  const { image } = await post<{ image: string }>('generate-image', { idea, format })
-  return image
+/**
+ * Gera uma imagem de fundo por IA a partir do texto do post.
+ * O servidor usa a IA de texto para bolar (de forma aleatória) uma cena que
+ * faça sentido com o conteúdo, e então gera a imagem dessa cena.
+ * Retorna a data URL (PNG) e a ideia de cena usada.
+ */
+export async function generateImage(
+  postText: string,
+  format: Format,
+): Promise<{ image: string; idea: string }> {
+  return post<{ image: string; idea: string }>('generate-image', { postText, format })
 }
 
 interface RawAd {

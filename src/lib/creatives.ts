@@ -65,3 +65,30 @@ export function pickFresh(n: number, filter: Filter, excludeKeys: string[] = [])
   }
   return out.map((x) => instantiate(x))
 }
+
+/**
+ * Concatena os textos visíveis do criativo (campos + legenda) num único
+ * texto, usado para a IA sugerir uma imagem de fundo que faça sentido com o post.
+ */
+export function postTextOf(c: Creative): string {
+  const f = c.f
+  const parts = [
+    f.badge,
+    f.headline,
+    f.highlight,
+    f.sub,
+    f.eyebrow,
+    f.line1,
+    f.line2,
+    f.title,
+    f.item1,
+    f.item2,
+    f.item3,
+    f.question,
+    f.quote,
+    f.myth,
+    f.truth,
+    c.caption,
+  ]
+  return parts.filter(Boolean).join(' ').trim()
+}

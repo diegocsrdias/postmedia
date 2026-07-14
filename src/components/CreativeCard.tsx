@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { Creative, CreativeFields } from '../types'
 import { ANGLE_LABELS, EDIT_FIELDS, STRAT } from '../data/bank'
-import { CreativeCanvas, IMAGE_FRIENDLY } from './CreativeCanvas'
+import { CreativeCanvas } from './CreativeCanvas'
 
 interface Props {
   c: Creative
@@ -20,7 +20,6 @@ interface Props {
   onCopy: (idx: number) => void
   onDownload: (idx: number) => void
   onVideo: (idx: number) => void
-  onEditBgPrompt: (idx: number, val: string) => void
   onGenImage: (idx: number) => void
   onClearImage: (idx: number) => void
   busy: boolean
@@ -91,6 +90,7 @@ export function CreativeCard(props: Props) {
             borderRadius: 10,
             boxShadow: '0 8px 24px rgba(20,20,43,.18)',
             flex: 'none',
+            position: 'relative',
           }}
         >
           <CreativeCanvas
@@ -101,6 +101,64 @@ export function CreativeCard(props: Props) {
             innerW={innerW}
             innerH={innerH}
           />
+
+          {/* botões flutuantes: fundo por IA (aparece em todo post, feed ou story) */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              display: 'flex',
+              gap: 6,
+              zIndex: 5,
+            }}
+          >
+            {c.bgImage && (
+              <button
+                onClick={() => props.onClearImage(idx)}
+                title="Remover imagem de fundo"
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(20,20,43,0.65)',
+                  color: '#F6F2EA',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                ✕
+              </button>
+            )}
+            <button
+              onClick={() => props.onGenImage(idx)}
+              disabled={props.busy}
+              title={c.bgImage ? 'Gerar outra imagem de fundo por IA' : 'Gerar imagem de fundo por IA'}
+              style={{
+                height: 30,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: 'none',
+                background: 'rgba(20,20,43,0.65)',
+                color: '#C0D830',
+                fontWeight: 700,
+                fontSize: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: props.busy ? 'default' : 'pointer',
+                opacity: props.busy ? 0.7 : 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              🎨 {c.bgImage ? 'Outra' : 'Gerar fundo'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -180,66 +238,6 @@ export function CreativeCard(props: Props) {
             </label>
           ))}
         </div>
-
-        {/* AI background image (só para layouts de fundo escuro) */}
-        {IMAGE_FRIENDLY.has(c.layout) && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              background: '#EEE7D8',
-              borderRadius: 10,
-              padding: '10px 12px',
-            }}
-          >
-            <span style={fieldLabel}>🎨 Fundo por IA (imagem)</span>
-            <textarea
-              value={c.bgPrompt ?? ''}
-              onChange={(e) => props.onEditBgPrompt(idx, e.target.value)}
-              rows={2}
-              placeholder="Ex: cofrinho de porcelana sobre mesa de madeira, luz suave…"
-              style={textarea}
-            />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => props.onGenImage(idx)}
-                disabled={props.busy}
-                style={{
-                  flex: 1,
-                  background: '#303078',
-                  color: '#C0D830',
-                  border: 'none',
-                  borderRadius: 8,
-                  padding: '9px',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: props.busy ? 'default' : 'pointer',
-                  opacity: props.busy ? 0.7 : 1,
-                }}
-              >
-                {c.bgImage ? '🔁 Gerar outra' : '🎨 Gerar imagem'}
-              </button>
-              {c.bgImage && (
-                <button
-                  onClick={() => props.onClearImage(idx)}
-                  style={{
-                    background: 'none',
-                    border: '1px solid #DCD3BD',
-                    borderRadius: 8,
-                    padding: '9px 12px',
-                    fontWeight: 600,
-                    fontSize: 13,
-                    color: '#4A4A6A',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Remover
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* caption */}
         <div

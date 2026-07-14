@@ -7,11 +7,11 @@ import screenshot from '../assets/app-screenshot.png'
 const S = (o: CSSProperties) => o
 
 /**
- * Layouts com texto claro sobre fundo escuro — onde uma imagem de IA + véu
- * escuro mantém o texto legível. (question/list/quote/myth usam texto escuro
- * e não recebem imagem de fundo.)
+ * Layouts com texto claro sobre fundo escuro — recebem véu escuro por trás
+ * da imagem de IA. Os demais (texto escuro sobre fundo claro) recebem véu
+ * claro, pra manter a legibilidade preservando a identidade visual.
  */
-export const IMAGE_FRIENDLY = new Set(['ad', 'statement', 'feature'])
+export const DARK_BG_LAYOUTS = new Set(['ad', 'statement', 'feature'])
 
 /**
  * A "arte" do criativo em resolução nativa (1080×1080 ou 1080×1920).
@@ -33,6 +33,7 @@ export function CreativeCanvas({
   innerH: number
 }) {
   const hasBg = Boolean(c.bgImage)
+  const isDarkLayout = DARK_BG_LAYOUTS.has(c.layout)
   /** Fundo do layout: transparente (deixa a imagem aparecer) quando há bgImage. */
   const bgFor = (color: string): string => (hasBg ? 'transparent' : color)
   /** Camada de conteúdo acima da imagem/véu. */
@@ -89,8 +90,9 @@ export function CreativeCanvas({
             style={{
               position: 'absolute',
               inset: 0,
-              background:
-                'linear-gradient(180deg, rgba(20,20,43,0.35) 0%, rgba(20,20,43,0.72) 100%)',
+              background: isDarkLayout
+                ? 'linear-gradient(180deg, rgba(20,20,43,0.35) 0%, rgba(20,20,43,0.72) 100%)'
+                : 'linear-gradient(180deg, rgba(246,242,234,0.55) 0%, rgba(246,242,234,0.88) 100%)',
               zIndex: 0,
             }}
           />
@@ -341,10 +343,11 @@ export function CreativeCanvas({
           style={S({
             position: 'absolute',
             inset: 0,
-            background: '#F6F2EA',
+            background: bgFor('#F6F2EA'),
             display: 'flex',
             flexDirection: 'column',
             padding: '92px 84px',
+            ...layerZ,
           })}
         >
           <div
@@ -435,10 +438,11 @@ export function CreativeCanvas({
           style={S({
             position: 'absolute',
             inset: 0,
-            background: '#C0D830',
+            background: bgFor('#C0D830'),
             display: 'flex',
             flexDirection: 'column',
             padding: '96px 88px',
+            ...layerZ,
           })}
         >
           <div
@@ -563,10 +567,11 @@ export function CreativeCanvas({
           style={S({
             position: 'absolute',
             inset: 0,
-            background: '#EEE7D8',
+            background: bgFor('#EEE7D8'),
             display: 'flex',
             flexDirection: 'column',
             padding: '96px 88px',
+            ...layerZ,
           })}
         >
           <div
@@ -615,10 +620,11 @@ export function CreativeCanvas({
           style={S({
             position: 'absolute',
             inset: 0,
-            background: '#F6F2EA',
+            background: bgFor('#F6F2EA'),
             display: 'flex',
             flexDirection: 'column',
             padding: '80px 80px',
+            ...layerZ,
           })}
         >
           <div

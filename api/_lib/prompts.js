@@ -37,6 +37,30 @@ export function themePrompt(n, theme) {
   return { system, user }
 }
 
+/**
+ * Pede à IA de texto para bolar uma ideia curta de CENA (fundo fotográfico)
+ * que faça sentido com o conteúdo do post — usado antes de gerar a imagem,
+ * pra cada geração sair diferente e conectada ao texto do criativo.
+ */
+export function imageIdeaPrompt(postText, styleHint) {
+  const system =
+    'Você é diretor de arte da marca "Controle DinDin" (app de controle financeiro pessoal). ' +
+    'Sua função é sugerir, em UMA frase curta e concreta (até ~22 palavras), uma cena real ' +
+    'para servir de FOTO DE FUNDO de um post, que se conecte com o assunto do texto abaixo ' +
+    '(ex.: texto fala de economizar → cofrinho, poupança, notas guardadas; texto fala de dívida/alívio → ' +
+    'contas pagas, respiro financeiro; texto fala de metas → viagem, casa, conquista). ' +
+    'Descreva objetos, cenário e clima da cena. NÃO inclua texto/letras/logotipos na descrição. ' +
+    'NÃO repita cenas óbvias sempre iguais — varie o ângulo e o cenário a cada pedido. ' +
+    'Responda APENAS com a frase da cena, sem aspas, sem explicações.'
+  const user =
+    'Texto do post: "' +
+    String(postText || '').trim() +
+    '"\n' +
+    (styleHint ? 'Direcionamento de estilo para esta cena: ' + styleHint + '.\n' : '') +
+    'Sugira a cena de fundo agora.'
+  return { system, user }
+}
+
 /** Monta o prompt de imagem, ancorado na identidade visual da marca. */
 export function imagePrompt(userIdea) {
   const brand =
