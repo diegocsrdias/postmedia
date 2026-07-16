@@ -26,6 +26,7 @@ const PORT = Number(process.env.PORT || 3000)
 const apiHandlers = {
   '/api/generate-ads': () => import('../api/generate-ads.js'),
   '/api/generate-theme': () => import('../api/generate-theme.js'),
+  '/api/generate-mix': () => import('../api/generate-mix.js'),
   '/api/generate-image': () => import('../api/generate-image.js'),
 }
 

@@ -37,9 +37,12 @@ export function adsPrompt(n, existingHeadlines, client) {
   return { system, user }
 }
 
-export function themePrompt(n, theme, client) {
-  const system =
-    'Você é redator de social media da marca "' +
+/** System prompt base (identidade da marca) — compartilhado entre os geradores de texto. */
+function brandSystem(role, client) {
+  return (
+    'Você é ' +
+    role +
+    ' da marca "' +
     client.name +
     '", ' +
     client.business +
@@ -51,26 +54,75 @@ export function themePrompt(n, theme, client) {
     client.audience +
     '.' +
     guardrails(client)
-  const user =
-    'Crie ' +
-    n +
-    ' criativos para redes sociais (Instagram, Facebook e TikTok) que conectam o TEMA EM ALTA "' +
-    theme +
-    '" à marca — newsjacking. Amarre o tema à mensagem da marca de forma natural, criativa e coerente com o tom.\n\n' +
-    'Use APENAS estes layouts e EXATAMENTE estes campos:\n' +
-    '- "statement": { "eyebrow": rótulo curto, "line1": frase de impacto (parte 1), "line2": fecho (parte 2) }\n' +
-    '- "list": { "eyebrow": rótulo curto, "title": título, "item1", "item2", "item3" }\n' +
-    '- "question": { "question": pergunta que puxa comentário }\n' +
-    '- "feature": { "badge": curto em MAIÚSCULAS, "headline": título, "sub": 1 frase } (ligue a um serviço/recurso da marca)\n' +
-    '- "quote": { "quote": frase de efeito }\n' +
-    '- "myth": { "myth": crença errada, "truth": correção }\n\n' +
-    'Regras: varie os layouts entre os itens; textos MUITO curtos (line1/line2/headline/title até ~28 caracteres pra caber na tela); PT-BR; nada ofensivo.\n\n' +
+  )
+}
+
+/**
+ * Contrato de layouts+campos, idêntico ao que o front espera (ver EDIT_FIELDS).
+ * Fica num só lugar pra themePrompt e mixPrompt não divergirem.
+ */
+const LAYOUT_CONTRACT =
+  'Use APENAS estes layouts e EXATAMENTE estes campos:\n' +
+  '- "statement": { "eyebrow": rótulo curto, "line1": frase de impacto (parte 1), "line2": fecho (parte 2) }\n' +
+  '- "list": { "eyebrow": rótulo curto, "title": título, "item1", "item2", "item3" }\n' +
+  '- "question": { "question": pergunta que puxa comentário }\n' +
+  '- "feature": { "badge": curto em MAIÚSCULAS, "headline": título, "sub": 1 frase } (ligue a um serviço/recurso da marca)\n' +
+  '- "quote": { "quote": frase de efeito }\n' +
+  '- "myth": { "myth": crença errada, "truth": correção }\n\n'
+
+/** Formato de saída (JSON), compartilhado. */
+function outputContract(client) {
+  return (
     'Responda SOMENTE com um array JSON válido (sem texto antes ou depois, sem crases). Cada item:\n' +
     '{ "layout": "...", "f": { campos do layout escolhido }, "caption": "legenda de 2-3 linhas (emoji só se combinar com o tom da marca) e chamada pra ação (' +
     client.ctaWord +
     ')", "hashtags": "5 hashtags começando com # incluindo ' +
     client.hashtag +
     '", "vcap": "texto curto pra aparecer na tela do vídeo" }'
+  )
+}
+
+export function themePrompt(n, theme, client) {
+  const system = brandSystem('redator de social media', client)
+  const user =
+    'Crie ' +
+    n +
+    ' criativos para redes sociais (Instagram, Facebook e TikTok) que conectam o TEMA EM ALTA "' +
+    theme +
+    '" à marca — newsjacking. Amarre o tema à mensagem da marca de forma natural, criativa e coerente com o tom.\n\n' +
+    LAYOUT_CONTRACT +
+    'Regras: varie os layouts entre os itens; textos MUITO curtos (line1/line2/headline/title até ~28 caracteres pra caber na tela); PT-BR; nada ofensivo.\n\n' +
+    outputContract(client)
+  return { system, user }
+}
+
+/**
+ * Gera criativos "do dia" SEM tema fixo (o botão principal e o "Trocar").
+ * Recebe `directions` — direcionamentos criativos sorteados no servidor
+ * (ver generate-mix.js) — pra que cada chamada explore ângulos/ganchos
+ * diferentes em vez de convergir sempre no mesmo estilo de texto.
+ */
+export function mixPrompt(n, client, directions, avoid) {
+  const system = brandSystem('redator de social media', client)
+  const dir = directions && directions.length ? directions.join('; ') : ''
+  const user =
+    'Crie EXATAMENTE ' +
+    n +
+    ' criativos ORIGINAIS e diferentes entre si para redes sociais (Instagram, Facebook e TikTok) da marca — ' +
+    'o array de resposta DEVE ter ' +
+    n +
+    ' itens, nem mais nem menos. ' +
+    'Cada um explora um ângulo próprio do negócio (benefício, dor do público, curiosidade, bastidor, prova, objeção). ' +
+    (dir ? 'Direcionamentos criativos para ESTA leva (use como inspiração, um por item quando fizer sentido): ' + dir + '.\n' : '\n') +
+    (avoid ? 'NÃO repita nem parafraseie estes textos já usados: ' + avoid + '.\n' : '') +
+    '\n' +
+    LAYOUT_CONTRACT +
+    'Regras: VARIE bastante os layouts e a abertura de cada texto (não comece todos igual); ' +
+    'soe humano e espontâneo, nunca fórmula de IA; textos MUITO curtos (line1/line2/headline/title até ~28 caracteres pra caber na tela); PT-BR; nada ofensivo.\n\n' +
+    outputContract(client) +
+    '\n\nLembrete final: o array deve conter ' +
+    n +
+    ' objetos.'
   return { system, user }
 }
 

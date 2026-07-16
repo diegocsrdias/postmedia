@@ -14,22 +14,33 @@ function apiKey() {
 }
 
 /** Chat Completions → texto. */
-export async function chat({ system, user, maxTokens = 1800, temperature = 0.9 }) {
+export async function chat({
+  system,
+  user,
+  maxTokens = 1800,
+  temperature = 0.9,
+  presencePenalty,
+  frequencyPenalty,
+}) {
+  const body = {
+    model: TEXT_MODEL,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    max_tokens: maxTokens,
+    temperature,
+  }
+  // penalidades ajudam a IA a não repetir as mesmas palavras/aberturas
+  if (typeof presencePenalty === 'number') body.presence_penalty = presencePenalty
+  if (typeof frequencyPenalty === 'number') body.frequency_penalty = frequencyPenalty
   const res = await fetch(CHAT_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey()}`,
     },
-    body: JSON.stringify({
-      model: TEXT_MODEL,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      max_tokens: maxTokens,
-      temperature,
-    }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
@@ -66,11 +77,64 @@ export async function image({ prompt, size = '1024x1024' }) {
   throw new Error('Resposta de imagem sem dados')
 }
 
-/** Extrai o primeiro array JSON de um texto (a IA às vezes adiciona crases/texto). */
+/**
+ * Extrai o primeiro array JSON de um texto (a IA às vezes adiciona crases/texto,
+ * vírgula sobrando ou corta a resposta no meio). É tolerante:
+ * 1) tenta o parse direto; 2) remove vírgulas finais e tenta de novo;
+ * 3) como último recurso, resgata os objetos {...} completos, um a um.
+ */
 export function extractJsonArray(txt) {
   let s = String(txt || '').trim()
   const m = s.match(/\[[\s\S]*\]/)
   if (m) s = m[0]
+
+  const tryParse = (str) => {
+    try {
+      const v = JSON.parse(str)
+      return Array.isArray(v) ? v : null
+    } catch {
+      return null
+    }
+  }
+
+  // 1) direto
+  let out = tryParse(s)
+  if (out) return out
+
+  // 2) tira vírgulas antes de ] ou }
+  out = tryParse(s.replace(/,\s*([}\]])/g, '$1'))
+  if (out) return out
+
+  // 3) resgata objetos completos individualmente (aguenta truncamento no fim)
+  const salvaged = []
+  let depth = 0
+  let start = -1
+  let inStr = false
+  let esc = false
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (inStr) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') inStr = true
+    else if (ch === '{') {
+      if (depth === 0) start = i
+      depth++
+    } else if (ch === '}') {
+      depth--
+      if (depth === 0 && start >= 0) {
+        const obj = tryParse('[' + s.slice(start, i + 1) + ']')
+        if (obj && obj[0]) salvaged.push(obj[0])
+        start = -1
+      }
+    }
+  }
+  if (salvaged.length) return salvaged
+
+  // sem jeito: deixa o JSON.parse original estourar com a mensagem real
   return JSON.parse(s)
 }
 

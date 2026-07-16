@@ -4,7 +4,7 @@ import { CreativeCard } from './components/CreativeCard'
 import { CLIENT_LIST, DEFAULT_CLIENT, getClient } from './clients'
 import type { ClientId } from './clients'
 import { ANGLE_LABELS, ANGLE_ORDER } from './data/shared'
-import { generateAds, generateByTheme, generateImage } from './lib/api'
+import { generateAds, generateByTheme, generateImage, generateMix } from './lib/api'
 import { pickFresh, postTextOf } from './lib/creatives'
 import { copyText, downloadPng, downloadReels } from './lib/export'
 import type { Creative, CreativeFields, Filter, Format } from './types'
@@ -82,11 +82,67 @@ export default function App() {
         void generateAdsAI(nextCount, null)
         return
       }
+      // "Todos os temas" (padrão) gera com IA — textos variados e originais.
+      // Um ângulo específico continua vindo do banco curado por ângulo.
+      if (nextFilter === 'all') {
+        void generateMixAI(nextCount, null)
+        return
+      }
       setCreatives(pickFresh(client.bank, nextCount, nextFilter, []))
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [client, filter, count],
   )
+
+  // Concatena textos já na tela pra IA não repetir na próxima leva.
+  function existingText(): string {
+    return creatives
+      .map((c) => postTextOf(c))
+      .join(' | ')
+      .slice(0, 1200)
+  }
+
+  async function generateMixAI(n: number, replaceIdx: number | null) {
+    if (generating) return
+    setGenerating(true)
+    flash(replaceIdx == null ? 'Criando ' + n + ' criativos com IA… ⏳' : 'Criando novo criativo… ⏳')
+    try {
+      let fresh = await generateMix(n, existingText(), client.id)
+      // a IA às vezes devolve menos itens que o pedido — completa com o banco
+      // (offline) pra a grade sempre ficar cheia.
+      if (replaceIdx == null && fresh.length < n) {
+        const usedKeys = fresh.map((c) => c._key)
+        const fill = pickFresh(client.bank, n - fresh.length, 'all', usedKeys)
+        fresh = fresh.concat(fill).slice(0, n)
+      }
+      setCreatives((prev) => {
+        if (replaceIdx != null) {
+          const a = prev.slice()
+          a[replaceIdx] = fresh[0]
+          return a
+        }
+        return fresh
+      })
+      flash(replaceIdx == null ? fresh.length + ' criativos novos! 🎉' : 'Criativo novo no lugar! 🎉')
+    } catch (err) {
+      // fallback: se a IA falhar, cai pro banco offline pra não deixar a tela vazia
+      const used = replaceIdx == null ? [] : creatives.map((c) => c._key)
+      const fresh = pickFresh(client.bank, n, 'all', used)
+      if (fresh.length) {
+        setCreatives((prev) => {
+          if (replaceIdx != null && fresh[0]) {
+            const a = prev.slice()
+            a[replaceIdx] = fresh[0]
+            return a
+          }
+          return fresh
+        })
+      }
+      flash(aiError(err))
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   async function generateAdsAI(n: number, replaceIdx: number | null) {
     if (generating) return
@@ -159,6 +215,11 @@ export default function App() {
     const cur = creatives[idx]
     if (cur && cur.layout === 'ad') {
       void generateAdsAI(1, idx)
+      return
+    }
+    // Em "Todos os temas", trocar um card gera um novo com IA.
+    if (filter === 'all') {
+      void generateMixAI(1, idx)
       return
     }
     const used = creatives.map((c) => c._key)
@@ -383,12 +444,13 @@ export default function App() {
               Criativos de hoje
             </h1>
             <p style={{ margin: 0, color: UI.inkMuted, fontSize: 15, maxWidth: 560 }}>
-              Gere posts prontos pra Facebook, Instagram e TikTok. Ajuste o texto, copie a legenda e
-              baixe a arte em PNG.
+              A IA cria posts originais pra Facebook, Instagram e TikTok. Ajuste o texto, copie a
+              legenda e baixe a arte em PNG.
             </p>
           </div>
           <button
             onClick={() => generateAll()}
+            disabled={generating}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -400,11 +462,13 @@ export default function App() {
               padding: '15px 28px',
               fontWeight: 800,
               fontSize: 16,
-              cursor: 'pointer',
+              cursor: generating ? 'default' : 'pointer',
+              opacity: generating ? 0.7 : 1,
               boxShadow: SHADOW.raised,
             }}
           >
-            <span style={{ fontSize: 19 }}>🎲</span> Gerar {count} criativos
+            <span style={{ fontSize: 19 }}>{generating ? '⏳' : '🎲'}</span>{' '}
+            {generating ? 'Criando…' : 'Gerar ' + count + ' criativos com IA'}
           </button>
         </div>
 
