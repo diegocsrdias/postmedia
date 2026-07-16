@@ -106,6 +106,72 @@ img {
   }
 }
 
+/* ============================================================
+   Indicadores de carregamento (spinner + overlays)
+   ============================================================ */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Spinner circular reutilizável. A cor da borda superior é herdada de `color`. */
+.spinner {
+  display: inline-block;
+  border-radius: 50%;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.25);
+  border-top-color: currentColor;
+  animation: spin 0.7s linear infinite;
+  flex: none;
+}
+
+/* Overlay que cobre a tela inteira enquanto a IA trabalha. */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(9, 9, 11, 0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: overlayIn 0.18s ease-out;
+}
+
+/* Overlay que cobre apenas o card cuja imagem está sendo gerada. */
+.card-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  background: rgba(9, 9, 11, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: overlayIn 0.18s ease-out;
+  border-radius: 10px;
+}
+
 /* Áreas roláveis horizontalmente (chips de tema) não empurram a página */
 .hscroll {
   overflow-x: auto;

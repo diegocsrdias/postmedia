@@ -27,6 +27,8 @@ interface Props {
   onGenImage: (idx: number, mode: ImageMode) => void
   onClearImage: (idx: number) => void
   busy: boolean
+  /** true quando a imagem DESTE card está sendo gerada pela IA */
+  busyImage?: boolean
 }
 
 export function CreativeCard(props: Props) {
@@ -133,6 +135,19 @@ export function CreativeCard(props: Props) {
               📣 Propaganda
             </button>
           </div>
+
+          {/* overlay enquanto a IA gera a imagem deste card */}
+          {props.busyImage && (
+            <div className="card-loading-overlay" role="status" aria-live="polite">
+              <span
+                className="spinner"
+                style={{ width: 40, height: 40, borderWidth: 4, color: '#fff' }}
+              />
+              <div style={{ color: '#fff', fontWeight: 700, fontSize: 13, padding: '0 16px' }}>
+                Gerando imagem… ~15s
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

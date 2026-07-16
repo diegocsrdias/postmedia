@@ -38,6 +38,10 @@ export default function App() {
   const [videoCaptionOn, setVideoCaptionOn] = useState(false)
   const [theme, setTheme] = useState('')
   const [generating, setGenerating] = useState(false)
+  // mensagem exibida no overlay de carregamento (tela cheia)
+  const [loadingMsg, setLoadingMsg] = useState('')
+  // índice do card cuja imagem está sendo gerada (overlay só naquele card)
+  const [busyCardIdx, setBusyCardIdx] = useState<number | null>(null)
   const [creatives, setCreatives] = useState<Creative[]>(() =>
     pickFresh(getClient(getInitialClientId()).bank, 3, 'all', []),
   )
@@ -105,7 +109,9 @@ export default function App() {
   async function generateMixAI(n: number, replaceIdx: number | null) {
     if (generating) return
     setGenerating(true)
-    flash(replaceIdx == null ? 'Criando ' + n + ' criativos com IA… ⏳' : 'Criando novo criativo… ⏳')
+    setLoadingMsg(
+      replaceIdx == null ? 'Criando ' + n + ' criativos com IA…' : 'Criando novo criativo…',
+    )
     try {
       let fresh = await generateMix(n, existingText(), client.id)
       // a IA às vezes devolve menos itens que o pedido — completa com o banco
@@ -141,13 +147,16 @@ export default function App() {
       flash(aiError(err))
     } finally {
       setGenerating(false)
+      setLoadingMsg('')
     }
   }
 
   async function generateAdsAI(n: number, replaceIdx: number | null) {
     if (generating) return
     setGenerating(true)
-    flash(replaceIdx == null ? 'Criando ' + n + ' anúncios com IA… ⏳' : 'Criando novo anúncio… ⏳')
+    setLoadingMsg(
+      replaceIdx == null ? 'Criando ' + n + ' anúncios com IA…' : 'Criando novo anúncio…',
+    )
     const existing = creatives
       .filter((c) => c.layout === 'ad')
       .map((c) => c.f.headline + ' ' + c.f.highlight)
@@ -167,6 +176,7 @@ export default function App() {
       flash(aiError(err))
     } finally {
       setGenerating(false)
+      setLoadingMsg('')
     }
   }
 
@@ -177,7 +187,7 @@ export default function App() {
     }
     if (generating) return
     setGenerating(true)
-    flash('Criando com IA… ⏳')
+    setLoadingMsg('Criando criativos sobre "' + t + '"…')
     try {
       const fresh = await generateByTheme(count, t, client.id)
       setCreatives(fresh)
@@ -186,6 +196,7 @@ export default function App() {
       flash(aiError(err))
     } finally {
       setGenerating(false)
+      setLoadingMsg('')
     }
   }
 
@@ -301,11 +312,8 @@ export default function App() {
   const genImage = async (idx: number, mode: ImageMode = 'editorial') => {
     if (generating) return
     setGenerating(true)
-    flash(
-      mode === 'promo'
-        ? 'Gerando imagem de propaganda… ⏳ (pode levar ~15s)'
-        : 'Gerando imagem com IA… ⏳ (pode levar ~15s)',
-    )
+    // overlay só no card alvo (não na tela inteira) — o usuário sabe onde a foto vai cair
+    setBusyCardIdx(idx)
     try {
       const cur = creatives[idx]
       const postText = postTextOf(cur)
@@ -320,6 +328,7 @@ export default function App() {
       flash(aiError(err))
     } finally {
       setGenerating(false)
+      setBusyCardIdx(null)
     }
   }
 
@@ -467,7 +476,14 @@ export default function App() {
               boxShadow: SHADOW.raised,
             }}
           >
-            <span style={{ fontSize: 19 }}>{generating ? '⏳' : '🎲'}</span>{' '}
+            {generating ? (
+              <span
+                className="spinner"
+                style={{ width: 18, height: 18, borderWidth: 2.5, color: UI.darkText }}
+              />
+            ) : (
+              <span style={{ fontSize: 19 }}>🎲</span>
+            )}{' '}
             {generating ? 'Criando…' : 'Gerar ' + count + ' criativos com IA'}
           </button>
         </div>
@@ -540,7 +556,19 @@ export default function App() {
                 opacity: generating ? 0.7 : 1,
               }}
             >
-              {generating ? 'Criando… ⏳' : '✨ Gerar com esse tema'}
+              {generating ? (
+                <span
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                >
+                  <span
+                    className="spinner"
+                    style={{ width: 15, height: 15, borderWidth: 2, color: UI.darkText }}
+                  />
+                  Criando…
+                </span>
+              ) : (
+                '✨ Gerar com esse tema'
+              )}
             </button>
           </div>
           <div
@@ -766,10 +794,28 @@ export default function App() {
               onGenImage={(cardIdx, mode) => void genImage(cardIdx, mode)}
               onClearImage={clearImage}
               busy={generating}
+              busyImage={busyCardIdx === i}
             />
           ))}
         </div>
       </div>
+
+      {/* overlay de carregamento em tela cheia — geração de lote/tema.
+          Grande e centralizado, funciona bem no celular (a toast passava batido). */}
+      {generating && loadingMsg && (
+        <div className="loading-overlay" role="status" aria-live="polite">
+          <span
+            className="spinner"
+            style={{ width: 52, height: 52, borderWidth: 5, color: '#fff' }}
+          />
+          <div style={{ color: '#fff', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em' }}>
+            {loadingMsg}
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
+            A IA está trabalhando — pode levar alguns segundos.
+          </div>
+        </div>
+      )}
 
       {/* toast */}
       {toast && (
