@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { CreativeCard } from './components/CreativeCard'
 import { CLIENT_LIST, DEFAULT_CLIENT, getClient } from './clients'
 import type { ClientId } from './clients'
@@ -8,7 +8,8 @@ import { generateAds, generateByTheme, generateImage } from './lib/api'
 import { pickFresh, postTextOf } from './lib/creatives'
 import { copyText, downloadPng, downloadReels } from './lib/export'
 import type { Creative, CreativeFields, Filter, Format } from './types'
-import { UI } from './ui/theme'
+import type { ImageMode } from './lib/api'
+import { FONT, RADIUS, SHADOW, UI, monoLabel, segButton, segGroup } from './ui/theme'
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
@@ -16,27 +17,6 @@ function getInitialClientId(): ClientId {
   if (typeof window === 'undefined') return DEFAULT_CLIENT
   const stored = localStorage.getItem('creativeClientId')
   return CLIENT_LIST.some((item) => item.id === stored) ? (stored as ClientId) : DEFAULT_CLIENT
-}
-
-function segStyle(on: boolean): CSSProperties {
-  return {
-    border: 'none',
-    borderRadius: 999,
-    padding: '8px 16px',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
-    background: on ? UI.dark : 'transparent',
-    color: on ? UI.darkText : UI.inkMuted,
-  }
-}
-
-const monoLabel: CSSProperties = {
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: 10,
-  letterSpacing: '0.14em',
-  textTransform: 'uppercase',
-  color: UI.inkMuted2,
 }
 
 /** Converte um erro de chamada de IA numa mensagem curta para o toast. */
@@ -257,20 +237,24 @@ export default function App() {
     }
   }
 
-  const genImage = async (idx: number) => {
+  const genImage = async (idx: number, mode: ImageMode = 'editorial') => {
     if (generating) return
     setGenerating(true)
-    flash('Gerando imagem com IA… ⏳ (pode levar ~15s)')
+    flash(
+      mode === 'promo'
+        ? 'Gerando imagem de propaganda… ⏳ (pode levar ~15s)'
+        : 'Gerando imagem com IA… ⏳ (pode levar ~15s)',
+    )
     try {
       const cur = creatives[idx]
       const postText = postTextOf(cur)
-      const { image: img, idea } = await generateImage(postText, format, client.id)
+      const { image: img, idea } = await generateImage(postText, format, client.id, mode)
       setCreatives((prev) => {
         const a = prev.slice()
         a[idx] = { ...a[idx], bgImage: img, bgPrompt: idea }
         return a
       })
-      flash('Imagem aplicada! 🎨')
+      flash(mode === 'promo' ? 'Imagem de propaganda aplicada! 📣' : 'Imagem aplicada! 🎨')
     } catch (err) {
       flash(aiError(err))
     } finally {
@@ -326,7 +310,7 @@ export default function App() {
             </span>
             <span
               style={{
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: FONT.mono,
                 fontSize: 11,
                 letterSpacing: '0.16em',
                 textTransform: 'uppercase',
@@ -340,7 +324,7 @@ export default function App() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 220 }}>
           <span
             style={{
-              fontFamily: "'JetBrains Mono', monospace",
+              fontFamily: FONT.mono,
               fontSize: 10,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
@@ -356,7 +340,7 @@ export default function App() {
               border: '1px solid rgba(255,255,255,0.14)',
               background: UI.darkAlt,
               color: UI.darkText,
-              borderRadius: 999,
+              borderRadius: RADIUS.pill,
               padding: '9px 14px',
               fontSize: 13,
               fontWeight: 700,
@@ -373,7 +357,7 @@ export default function App() {
         <div style={{ flex: 1 }} />
         <span
           style={{
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: FONT.mono,
             fontSize: 12,
             color: UI.darkTextMuted,
             letterSpacing: '0.08em',
@@ -412,12 +396,12 @@ export default function App() {
               background: UI.dark,
               color: UI.darkText,
               border: 'none',
-              borderRadius: 999,
+              borderRadius: RADIUS.pill,
               padding: '15px 28px',
               fontWeight: 800,
               fontSize: 16,
               cursor: 'pointer',
-              boxShadow: '0 8px 20px rgba(0,0,0,.18)',
+              boxShadow: SHADOW.raised,
             }}
           >
             <span style={{ fontSize: 19 }}>🎲</span> Gerar {count} criativos
@@ -443,14 +427,14 @@ export default function App() {
             </span>
             <span
               style={{
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: FONT.mono,
                 fontSize: 9,
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
                 background: UI.dark,
                 color: UI.darkText,
                 padding: '3px 8px',
-                borderRadius: 999,
+                borderRadius: RADIUS.pill,
               }}
             >
               com IA
@@ -504,7 +488,7 @@ export default function App() {
               marginTop: 14,
             }}
           >
-            <span style={monoLabel}>Quentes agora:</span>
+            <span style={monoLabel()}>Quentes agora:</span>
             {client.themes.map((chip) => (
               <button
                 key={chip.theme}
@@ -512,7 +496,7 @@ export default function App() {
                 style={{
                   background: '#fff',
                   border: '1px solid ' + UI.border,
-                  borderRadius: 999,
+                  borderRadius: RADIUS.pill,
                   padding: '6px 13px',
                   fontSize: 13,
                   fontWeight: 600,
@@ -542,18 +526,18 @@ export default function App() {
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={monoLabel}>Formato</span>
-            <div style={{ display: 'flex', background: UI.surfaceAlt, borderRadius: 999, padding: 3 }}>
-              <button onClick={() => setFormat('square')} style={segStyle(square)}>
+            <span style={monoLabel()}>Formato</span>
+            <div style={segGroup}>
+              <button onClick={() => setFormat('square')} style={segButton(square)}>
                 Feed 1:1
               </button>
-              <button onClick={() => setFormat('story')} style={segStyle(!square)}>
+              <button onClick={() => setFormat('story')} style={segButton(!square)}>
                 Story 9:16
               </button>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={monoLabel}>Tema</span>
+            <span style={monoLabel()}>Tema</span>
             <select
               value={filter}
               onChange={(e) => {
@@ -564,7 +548,7 @@ export default function App() {
               style={{
                 border: '1px solid ' + UI.border,
                 background: '#fff',
-                borderRadius: 999,
+                borderRadius: RADIUS.pill,
                 padding: '9px 16px',
                 fontSize: 14,
                 fontWeight: 600,
@@ -583,8 +567,8 @@ export default function App() {
             </select>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={monoLabel}>Quantidade</span>
-            <div style={{ display: 'flex', background: UI.surfaceAlt, borderRadius: 999, padding: 3 }}>
+            <span style={monoLabel()}>Quantidade</span>
+            <div style={segGroup}>
               {[3, 4, 6].map((n) => (
                 <button
                   key={n}
@@ -592,7 +576,7 @@ export default function App() {
                     setCount(n)
                     generateAll(filter, n)
                   }}
-                  style={segStyle(count === n)}
+                  style={segButton(count === n)}
                 >
                   {n}
                 </button>
@@ -672,21 +656,15 @@ export default function App() {
             }}
           >
             <span
-              style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 10,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                color: UI.darkTextMuted,
-              }}
+              style={monoLabel('dark')}
             >
               Legenda no vídeo
             </span>
-            <div style={{ display: 'flex', background: UI.darkAlt, borderRadius: 999, padding: 3 }}>
-              <button onClick={() => setVideoCaptionOn(true)} style={segStyle(videoCaptionOn)}>
+            <div style={{ ...segGroup, background: UI.darkAlt }}>
+              <button onClick={() => setVideoCaptionOn(true)} style={segButton(videoCaptionOn)}>
                 Ligada
               </button>
-              <button onClick={() => setVideoCaptionOn(false)} style={segStyle(!videoCaptionOn)}>
+              <button onClick={() => setVideoCaptionOn(false)} style={segButton(!videoCaptionOn)}>
                 Desligada
               </button>
             </div>
@@ -721,7 +699,7 @@ export default function App() {
               onCopy={(cardIdx) => void copyCaption(cardIdx)}
               onDownload={(cardIdx) => void doDownload(cardIdx)}
               onVideo={(cardIdx) => void doVideo(cardIdx)}
-              onGenImage={(cardIdx) => void genImage(cardIdx)}
+              onGenImage={(cardIdx, mode) => void genImage(cardIdx, mode)}
               onClearImage={clearImage}
               busy={generating}
             />
@@ -740,10 +718,10 @@ export default function App() {
             background: UI.dark,
             color: UI.darkText,
             padding: '13px 24px',
-            borderRadius: 999,
+            borderRadius: RADIUS.pill,
             fontWeight: 600,
             fontSize: 14,
-            boxShadow: '0 12px 32px rgba(0,0,0,.3)',
+            boxShadow: SHADOW.toast,
             zIndex: 50,
           }}
         >
@@ -759,7 +737,7 @@ function StrategyCol({ title, items }: { title: string; items: ReactNode[] }) {
     <div>
       <div
         style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: FONT.mono,
           fontSize: 10,
           letterSpacing: '0.14em',
           textTransform: 'uppercase',

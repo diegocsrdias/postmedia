@@ -78,51 +78,102 @@ export function themePrompt(n, theme, client) {
  * Pede à IA de texto para bolar uma ideia curta de CENA (fundo fotográfico)
  * que faça sentido com o conteúdo do post — usado antes de gerar a imagem,
  * pra cada geração sair diferente e conectada ao texto do criativo.
+ *
+ * `look` é um objeto de direcionamento sorteado (ver generate-image.js) com
+ * eixos independentes (ângulo, lente, luz, hora, composição, clima). Passar os
+ * eixos separadamente — em vez de uma única frase fixa — faz a IA divergir de
+ * verdade a cada chamada, em vez de convergir sempre pra mesma "cena segura".
  */
-export function imageIdeaPrompt(postText, styleHint, client, world) {
+export function imageIdeaPrompt(postText, look, client, world) {
+  const promo = look && look.mode === 'promo'
   const system =
     'Você é diretor de arte da marca "' +
     client.name +
     '" (' +
     client.business +
     '). ' +
-    'Sua função é sugerir, em UMA frase curta e concreta (até ~22 palavras), uma cena real ' +
-    'para servir de FOTO DE FUNDO de um post, que se conecte com o assunto do texto abaixo, ' +
-    'partindo deste cenário/objeto como ponto de partida (pode adaptar livremente): ' +
+    (promo
+      ? 'Sua função é sugerir, em UMA frase curta e concreta (até ~24 palavras), uma cena de PROPAGANDA visualmente chamativa e vendedora ' +
+        'para servir de FOTO DE FUNDO de um anúncio, conectada ao assunto do texto abaixo. ' +
+        'Pense em imagem de campanha publicitária: um herói/produto ou detalhe em destaque, cena aspiracional, energia e apelo comercial. '
+      : 'Sua função é sugerir, em UMA frase curta e concreta (até ~22 palavras), uma cena real ' +
+        'para servir de FOTO DE FUNDO de um post editorial, que se conecte com o assunto do texto abaixo. ') +
+    'Parta deste universo visual como ponto de partida (adapte livremente): ' +
     (world || client.imageWorld) +
     '. ' +
     'Descreva objetos, cenário e clima da cena de forma bem específica e concreta (nada genérico). NÃO inclua texto/letras/logotipos na descrição. ' +
-    'NÃO repita cenas óbvias sempre iguais — cada sugestão deve ser visualmente diferente das anteriores, variando ângulo, objetos e cenário. ' +
+    'NÃO repita cenas óbvias sempre iguais — cada sugestão deve ser visualmente DIFERENTE das anteriores, variando ângulo, objetos, cenário e clima. ' +
     'Responda APENAS com a frase da cena, sem aspas, sem explicações.'
   const user =
     'Texto do post: "' +
     String(postText || '').trim() +
     '"\n' +
-    (styleHint ? 'Direcionamento de estilo para esta cena: ' + styleHint + '.\n' : '') +
+    (look
+      ? 'Direcionamento para esta cena (respeite): ' + lookLine(look) + '.\n'
+      : '') +
     'Sugira a cena de fundo agora.'
   return { system, user }
 }
 
-/** Monta o prompt de imagem, ancorado na identidade visual da marca. */
-export function imagePrompt(userIdea, client, styleHint) {
-  const brand =
-    'Fotografia profissional e editorial para post de rede social da marca "' +
-    client.name +
-    '" (' +
-    client.business +
-    '). ' +
-    'NÃO faça ilustração flat, NÃO faça vetor, NÃO faça desenho geométrico simples — o resultado deve parecer uma foto real, ' +
-    'batida com câmera profissional (lente boa, profundidade de campo, luz e sombra naturais, texturas e materiais reais e ricos em detalhe: ' +
-    'madeira, tecido, papel, vidro, metal, pele, plantas, ambientes reais). ' +
-    'Cena elaborada e cheia de vida, com composição fotográfica de revista (regra dos terços, reflexos, profundidade). ' +
-    (styleHint ? 'Composição e luz OBRIGATÓRIAS para esta imagem: ' + styleHint + '. ' : '') +
-    'Aplique a identidade da marca de forma sutil e natural através da luz, reflexos, objetos de cena ou grade de cor — ' +
-    'tons que lembrem ' +
-    client.palette +
-    ' — sem parecer um filtro artificial por cima. ' +
-    'Deixe uma pequena área de respiro livre de elementos (não precisa ser o centro nem ocupar a cena toda) para permitir sobrepor texto depois. ' +
-    'IMPORTANTE: cada imagem deve ser visualmente ÚNICA e diferente das anteriores — varie ângulo, enquadramento, distância da câmera e disposição dos objetos; NÃO repita sempre a mesma composição "segura" de plano geral com fundo desfocado. ' +
+/** Traduz o objeto `look` sorteado numa frase legível pra IA. */
+function lookLine(look) {
+  return [look.angle, look.lens, look.light, look.time, look.composition, look.mood]
+    .filter(Boolean)
+    .join('; ')
+}
+
+/**
+ * Monta o prompt de imagem, ancorado na identidade visual da marca.
+ * `look.mode` alterna entre 'editorial' (foto natural e sóbria, padrão) e
+ * 'promo' (imagem de propaganda: vibrante, saturada, composição de anúncio).
+ */
+export function imagePrompt(userIdea, client, look) {
+  const promo = look && look.mode === 'promo'
+  const base = promo
+    ? 'Imagem de PROPAGANDA / campanha publicitária profissional para um anúncio da marca "' +
+      client.name +
+      '" (' +
+      client.business +
+      '). ' +
+      'Deve parecer foto de campanha de agência: vibrante, saturada, com muito contraste e impacto visual imediato, ' +
+      'um elemento herói em destaque, iluminação dramática e comercial, cores fortes e chamativas que puxam o olhar. ' +
+      'Energia aspiracional e vendedora, cara de outdoor / anúncio de revista premium. '
+    : 'Fotografia profissional e editorial para post de rede social da marca "' +
+      client.name +
+      '" (' +
+      client.business +
+      '). ' +
+      'Cena elaborada e cheia de vida, com composição fotográfica de revista (regra dos terços, reflexos, profundidade), ' +
+      'luz e clima naturais e sóbrios. '
+  const craft =
+    'NÃO faça ilustração flat, NÃO faça vetor, NÃO faça desenho geométrico simples — o resultado deve parecer uma FOTO REAL, ' +
+    'batida com câmera profissional (lente boa, profundidade de campo, texturas e materiais reais e ricos em detalhe: ' +
+    'madeira, tecido, papel, vidro, metal, pele, plantas, ambientes reais). '
+  const direction = look ? 'Direção de arte OBRIGATÓRIA para esta imagem: ' + lookLine(look) + '. ' : ''
+  const brandColor = promo
+    ? 'Use com força as cores da marca — ' +
+      client.palette +
+      ' — como cores dominantes da cena (fundo, luz, objetos), de forma marcante e proposital. '
+    : 'Aplique a identidade da marca de forma sutil e natural através da luz, reflexos, objetos de cena ou grade de cor — ' +
+      'tons que lembrem ' +
+      client.palette +
+      ' — sem parecer um filtro artificial por cima. '
+  const breathing =
+    'Deixe uma área de respiro limpa e proposital (não precisa ser o centro) para sobrepor texto depois. '
+  const unique =
+    'IMPORTANTE: cada imagem deve ser visualmente ÚNICA e diferente das anteriores — varie ângulo, enquadramento, distância da câmera, hora do dia e disposição dos objetos; NÃO repita a mesma composição "segura" de plano geral com fundo desfocado. '
+  const quality =
     'Altíssima resolução, riqueza de textura e realismo fotográfico. ' +
     "SEM texto, SEM letras, SEM números, SEM logotipos, SEM marcas d'água, SEM aparência de ilustração/cartoon/3D genérico. "
-  return brand + 'Cena/ideia a retratar: ' + String(userIdea || '').trim()
+  return (
+    base +
+    craft +
+    direction +
+    brandColor +
+    breathing +
+    unique +
+    quality +
+    'Cena/ideia a retratar: ' +
+    String(userIdea || '').trim()
+  )
 }

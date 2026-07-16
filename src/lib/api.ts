@@ -82,18 +82,28 @@ export async function generateByTheme(
   })
 }
 
+/** Estilo da imagem de fundo: editorial (sóbria) ou promo (propaganda vibrante). */
+export type ImageMode = 'editorial' | 'promo'
+
 /**
  * Gera uma imagem de fundo por IA a partir do texto do post.
  * O servidor usa a IA de texto para bolar (de forma aleatória) uma cena que
  * faça sentido com o conteúdo, e então gera a imagem dessa cena.
+ * `mode` escolhe entre foto editorial sóbria e imagem de propaganda vibrante.
  * Retorna a data URL (PNG) e a ideia de cena usada.
  */
 export async function generateImage(
   postText: string,
   format: Format,
   clientId: string,
-): Promise<{ image: string; idea: string }> {
-  return post<{ image: string; idea: string }>('generate-image', { postText, format, clientId })
+  mode: ImageMode = 'editorial',
+): Promise<{ image: string; idea: string; mode?: ImageMode }> {
+  return post<{ image: string; idea: string; mode?: ImageMode }>('generate-image', {
+    postText,
+    format,
+    clientId,
+    mode,
+  })
 }
 
 interface RawAd {

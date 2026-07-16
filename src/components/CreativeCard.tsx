@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react'
 import type { ClientConfig } from '../clients/types'
 import type { Creative, CreativeFields } from '../types'
+import type { ImageMode } from '../lib/api'
 import { ANGLE_LABELS, EDIT_FIELDS, STRAT } from '../data/shared'
-import { UI } from '../ui/theme'
+import { RADIUS, SHADOW, UI, button, fieldLabel, pill, textarea } from '../ui/theme'
 import { CreativeCanvas } from './CreativeCanvas'
 
 interface Props {
@@ -23,40 +24,9 @@ interface Props {
   onCopy: (idx: number) => void
   onDownload: (idx: number) => void
   onVideo: (idx: number) => void
-  onGenImage: (idx: number) => void
+  onGenImage: (idx: number, mode: ImageMode) => void
   onClearImage: (idx: number) => void
   busy: boolean
-}
-
-const pill: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  background: '#fff',
-  border: '1px solid ' + UI.border,
-  color: UI.ink,
-  padding: '3px 9px',
-  borderRadius: 999,
-}
-
-const fieldLabel: CSSProperties = {
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: 9,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  color: UI.inkMuted2,
-}
-
-const textarea: CSSProperties = {
-  width: '100%',
-  border: '1px solid ' + UI.border,
-  borderRadius: 8,
-  padding: '8px 10px',
-  fontSize: 13,
-  color: UI.ink,
-  background: '#fff',
-  lineHeight: 1.35,
-  resize: 'vertical',
-  fontFamily: 'inherit',
 }
 
 export function CreativeCard(props: Props) {
@@ -64,14 +34,33 @@ export function CreativeCard(props: Props) {
   const strat = STRAT[c.layout] ?? ({} as (typeof STRAT)[keyof typeof STRAT])
   const editFields = EDIT_FIELDS[c.layout] ?? []
 
+  // Botão flutuante sobre o preview (gerar/remover fundo por IA).
+  const floatBtn: CSSProperties = {
+    height: 30,
+    padding: '0 12px',
+    borderRadius: RADIUS.pill,
+    border: 'none',
+    background: 'rgba(0,0,0,0.6)',
+    color: '#fff',
+    fontWeight: 700,
+    fontSize: 12,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    cursor: props.busy ? 'default' : 'pointer',
+    opacity: props.busy ? 0.7 : 1,
+    whiteSpace: 'nowrap',
+  }
+
   return (
     <div
       style={{
         background: UI.surface,
         border: '1px solid ' + UI.border,
-        borderRadius: 18,
+        borderRadius: RADIUS.xl,
         overflow: 'hidden',
-        boxShadow: '0 4px 12px rgba(0,0,0,.06)',
+        boxShadow: SHADOW.card,
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -106,7 +95,8 @@ export function CreativeCard(props: Props) {
             client={client}
           />
 
-          {/* botões flutuantes: fundo por IA (aparece em todo post, feed ou story) */}
+          {/* botões flutuantes: fundo por IA (aparece em todo post, feed ou story).
+              Dois estilos: editorial (foto sóbria) e propaganda (imagem vibrante). */}
           <div
             style={{
               position: 'absolute',
@@ -121,46 +111,26 @@ export function CreativeCard(props: Props) {
               <button
                 onClick={() => props.onClearImage(idx)}
                 title="Remover imagem de fundo"
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: '50%',
-                  border: 'none',
-                  background: 'rgba(0,0,0,0.6)',
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
+                style={{ ...floatBtn, width: 30, padding: 0, borderRadius: '50%', fontSize: 14 }}
               >
                 ✕
               </button>
             )}
             <button
-              onClick={() => props.onGenImage(idx)}
+              onClick={() => props.onGenImage(idx, 'editorial')}
               disabled={props.busy}
-              title={c.bgImage ? 'Gerar outra imagem de fundo por IA' : 'Gerar imagem de fundo por IA'}
-              style={{
-                height: 30,
-                padding: '0 12px',
-                borderRadius: 999,
-                border: 'none',
-                background: 'rgba(0,0,0,0.6)',
-                color: '#fff',
-                fontWeight: 700,
-                fontSize: 12,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                cursor: props.busy ? 'default' : 'pointer',
-                opacity: props.busy ? 0.7 : 1,
-                whiteSpace: 'nowrap',
-              }}
+              title={c.bgImage ? 'Gerar outra foto editorial por IA' : 'Gerar foto editorial por IA'}
+              style={floatBtn}
             >
-              🎨 {c.bgImage ? 'Outra' : 'Gerar fundo'}
+              🎨 {c.bgImage ? 'Foto' : 'Foto IA'}
+            </button>
+            <button
+              onClick={() => props.onGenImage(idx, 'promo')}
+              disabled={props.busy}
+              title="Gerar imagem de propaganda (vibrante e chamativa) por IA"
+              style={{ ...floatBtn, background: UI.accent }}
+            >
+              📣 Propaganda
             </button>
           </div>
         </div>
@@ -268,36 +238,10 @@ export function CreativeCard(props: Props) {
         </div>
 
         <div className="stack-sm" style={{ display: 'flex', gap: 10, marginTop: 2 }}>
-          <button
-            onClick={() => props.onCopy(idx)}
-            style={{
-              flex: 1,
-              background: UI.dark,
-              color: UI.darkText,
-              border: 'none',
-              borderRadius: 10,
-              padding: 11,
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: 'pointer',
-            }}
-          >
+          <button onClick={() => props.onCopy(idx)} style={{ ...button('primary'), flex: 1 }}>
             📋 Copiar legenda
           </button>
-          <button
-            onClick={() => props.onDownload(idx)}
-            style={{
-              flex: 1,
-              background: '#fff',
-              color: UI.ink,
-              border: '1px solid ' + UI.ink,
-              borderRadius: 10,
-              padding: 11,
-              fontWeight: 800,
-              fontSize: 14,
-              cursor: 'pointer',
-            }}
-          >
+          <button onClick={() => props.onDownload(idx)} style={{ ...button('ghost'), flex: 1 }}>
             ⬇ Baixar PNG
           </button>
         </div>
@@ -323,20 +267,7 @@ export function CreativeCard(props: Props) {
             </label>
             <button
               onClick={() => props.onVideo(idx)}
-              style={{
-                background: UI.dark,
-                color: UI.darkText,
-                border: '2px solid ' + UI.darkBorder,
-                borderRadius: 10,
-                padding: 11,
-                fontWeight: 800,
-                fontSize: 14,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-              }}
+              style={{ ...button('primary'), border: '2px solid ' + UI.darkBorder }}
             >
               🎬 Baixar Reels (vídeo ~6s)
             </button>

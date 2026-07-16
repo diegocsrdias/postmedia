@@ -7,29 +7,114 @@ const SIZES = {
   story: '1024x1536',
 }
 
-// Direcionamentos de estilo sorteados a cada geração, pra variar a composição
-// da foto (ângulo, luz, enquadramento) mesmo quando o post é o mesmo.
-const STYLE_HINTS = [
-  'ângulo baixo, luz quente de manhã entrando de lado',
-  'foto macro com foco raso (bokeh), luz suave de fim de tarde',
-  'vista de cima (flat lay) sobre uma mesa de madeira clara',
-  'ambiente doméstico aconchegante, luz natural vinda de uma janela',
-  'cena ao ar livre, luz difusa de dia nublado',
-  'still de estúdio, fundo desfocado e reflexos suaves',
-  'foto de rua urbana ao entardecer, luzes suaves ao fundo',
-  'ambiente de escritório moderno, luz lateral de janela grande',
-  'cena aconchegante ao entardecer, luz dourada (golden hour)',
-  'composição minimalista, muito espaço negativo, luz difusa e limpa',
-]
+// Em vez de um único "style hint" (que fazia as imagens convergirem sempre
+// pro mesmo visual), a direção de arte agora é COMBINATÓRIA: sorteamos um
+// valor de cada eixo independente. Isso multiplica o espaço de resultados
+// possíveis (ângulo × lente × luz × hora × composição × clima), então cada
+// geração sai visualmente distinta mesmo pro mesmo post.
+const AXES = {
+  editorial: {
+    angle: [
+      'ângulo baixo, quase rente à superfície',
+      'vista de cima (flat lay)',
+      'foto na altura dos olhos, frontal',
+      'ângulo diagonal de três quartos',
+      'câmera por cima do ombro, olhando a cena',
+      'plano detalhe bem aproximado (close-up)',
+    ],
+    lens: [
+      'lente 35mm, cena inteira em foco',
+      'lente 50mm, profundidade natural',
+      'lente 85mm com fundo bem desfocado (bokeh)',
+      'macro com foco raso em um único detalhe',
+      'grande-angular suave, sensação de amplitude',
+    ],
+    light: [
+      'luz quente entrando de lado por uma janela',
+      'luz difusa e suave de dia nublado',
+      'luz dourada de fim de tarde (golden hour)',
+      'luz de manhã limpa e clara',
+      'contraluz suave com reflexos',
+      'luz de estúdio controlada, sombras macias',
+    ],
+    time: ['início de manhã', 'meio do dia', 'fim de tarde', 'entardecer', 'hora azul'],
+    composition: [
+      'muito espaço negativo, minimalista',
+      'composição rica e cheia de camadas',
+      'regra dos terços, assunto deslocado do centro',
+      'enquadramento simétrico e organizado',
+      'primeiro plano em foco e fundo respirando',
+    ],
+    mood: [
+      'clima aconchegante e acolhedor',
+      'clima clean e organizado',
+      'clima sereno e introspectivo',
+      'clima produtivo e otimista',
+      'clima natural e espontâneo',
+    ],
+  },
+  // Modo propaganda: os mesmos eixos, mas puxados pro dramático/vendedor.
+  promo: {
+    angle: [
+      'ângulo baixo heroico, o assunto imponente',
+      'close-up dramático no produto/herói',
+      'diagonal dinâmica com muita energia',
+      'plano frontal forte, direto no assunto',
+      'vista de cima marcante e organizada (knolling)',
+    ],
+    lens: [
+      'lente 85mm, herói em foco cortante e fundo cremoso',
+      'macro publicitário, detalhe irresistível',
+      'grande-angular com perspectiva impactante',
+      'lente 50mm nítida, produto no centro da atenção',
+    ],
+    light: [
+      'iluminação dramática de estúdio, realces marcados',
+      'contraluz forte com halo brilhante',
+      'luz colorida de néon vibrante',
+      'spot direcional intenso sobre o herói',
+      'luz solar forte e saturada',
+    ],
+    time: ['estúdio sem hora definida', 'golden hour intensa', 'noite com luzes vibrantes'],
+    composition: [
+      'herói centralizado e dominante, resto desfocado',
+      'composição ousada com forte contraste de cor',
+      'muito espaço para chamada, produto num canto de destaque',
+      'camadas de profundidade puxando o olho pro herói',
+    ],
+    mood: [
+      'clima aspiracional e desejável',
+      'clima vibrante, energético e chamativo',
+      'clima premium e sofisticado',
+      'clima de oferta imperdível, animado',
+    ],
+  },
+}
 
-function randomStyleHint() {
-  return STYLE_HINTS[Math.floor(Math.random() * STYLE_HINTS.length)]
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+/** Sorteia uma direção de arte combinatória para o modo pedido. */
+function randomLook(mode) {
+  const m = mode === 'promo' ? 'promo' : 'editorial'
+  const ax = AXES[m]
+  return {
+    mode: m,
+    angle: pick(ax.angle),
+    lens: pick(ax.lens),
+    light: pick(ax.light),
+    time: pick(ax.time),
+    composition: pick(ax.composition),
+    mood: pick(ax.mood),
+  }
 }
 
 export default async function handler(req, res) {
   if (preflight(req, res)) return
   try {
-    const { postText = '', idea = '', format = 'square', clientId = '' } = await readJson(req)
+    const { postText = '', idea = '', format = 'square', clientId = '', mode = 'editorial' } =
+      await readJson(req)
     const client = getClient(clientId)
     const rawText = String(postText || idea || '').trim()
     if (!rawText) {
@@ -37,12 +122,12 @@ export default async function handler(req, res) {
       return
     }
 
-    // 1) IA de texto sugere uma cena que faça sentido com o conteúdo do post
-    //    (sorteando um "mundo visual" e um direcionamento de estilo — luz/ângulo —
-    //    diferentes a cada chamada, pra não convergir sempre pro mesmo objeto/composição).
-    const hint = randomStyleHint()
+    // 1) IA de texto sugere uma cena que faça sentido com o conteúdo do post,
+    //    sorteando um "mundo visual" e uma direção de arte combinatória
+    //    (modo editorial ou propaganda) diferentes a cada chamada.
+    const look = randomLook(mode)
     const world = randomImageWorld(client)
-    const { system, user } = imageIdeaPrompt(rawText, hint, client, world)
+    const { system, user } = imageIdeaPrompt(rawText, look, client, world)
     let sceneIdea = rawText
     try {
       const raw = await chat({ system, user, maxTokens: 200, temperature: 1.15 })
@@ -54,11 +139,11 @@ export default async function handler(req, res) {
       // se a sugestão de cena falhar, seguimos com o texto do post cru
     }
 
-    // 2) IA de imagem gera o fundo com base na cena sugerida, reforçando o
-    //    direcionamento de estilo diretamente no prompt final (não só via texto).
+    // 2) IA de imagem gera o fundo com base na cena sugerida, reforçando a
+    //    mesma direção de arte (modo + eixos) diretamente no prompt final.
     const size = SIZES[format] || SIZES.square
-    const dataUrl = await image({ prompt: imagePrompt(sceneIdea, client, hint), size })
-    res.status(200).json({ image: dataUrl, idea: sceneIdea })
+    const dataUrl = await image({ prompt: imagePrompt(sceneIdea, client, look), size })
+    res.status(200).json({ image: dataUrl, idea: sceneIdea, mode: look.mode })
   } catch (err) {
     res.status(502).json({ error: String(err?.message || err) })
   }
