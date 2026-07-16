@@ -119,15 +119,18 @@ export function CreativeCanvas({
     >
       {c.bgImage && (
         <>
-          <img
-            src={c.bgImage}
-            crossOrigin="anonymous"
+          {/* Fundo de IA como background-size: cover (não <img objectFit>).
+              O html2canvas 1.4.x ignora object-fit e ESPREME a <img>, deixando
+              o PNG/vídeo exportado diferente do preview; background-size: cover
+              é respeitado na captura, então a proporção fica igual à tela. */}
+          <div
             style={{
               position: 'absolute',
               inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
+              backgroundImage: `url(${c.bgImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
               zIndex: 0,
             }}
           />
