@@ -95,10 +95,29 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
+// Nem toda imagem precisa de pessoas — ~70% com gente, ~30% só cena/objetos.
+const PEOPLE_PROBABILITY = 0.7
+
+// Etnia sorteada POR imagem. Cada geração é isolada (o modelo não lembra das
+// anteriores), então "varie a etnia" genérico não funciona e a IA converge
+// sempre pro mesmo estereótipo. Fixar uma etnia concreta por imagem faz a
+// distribuição ficar diversa de verdade ao longo do tempo.
+const ETHNICITIES = [
+  'pessoa parda',
+  'pessoa branca',
+  'pessoa negra',
+  'pessoa asiática',
+  'pessoa indígena',
+  'pessoa de pele clara',
+  'pessoa ruiva',
+  'pessoa idosa de cabelos grisalhos',
+]
+
 /** Sorteia uma direção de arte combinatória para o modo pedido. */
 function randomLook(mode) {
   const m = mode === 'promo' ? 'promo' : 'editorial'
   const ax = AXES[m]
+  const withPeople = Math.random() < PEOPLE_PROBABILITY
   return {
     mode: m,
     angle: pick(ax.angle),
@@ -107,6 +126,10 @@ function randomLook(mode) {
     time: pick(ax.time),
     composition: pick(ax.composition),
     mood: pick(ax.mood),
+    withPeople,
+    // só define etnia quando a cena terá pessoas; múltiplas pessoas podem
+    // misturar etnias, mas garantimos ao menos uma âncora concreta e variada.
+    ethnicity: withPeople ? pick(ETHNICITIES) : null,
   }
 }
 

@@ -15,18 +15,20 @@ export const CLIENTS = {
     palette: 'azul-marinho profundo (#303078), verde-limão vibrante (#C0D830) e creme (#F6F2EA)',
     // Vários "mundos" visuais possíveis — um é sorteado a cada geração pra
     // evitar que a IA de imagem sempre convirja pro mesmo objeto/cenário.
+    // Cenas neutras (sem fixar quem aparece) — a presença/etnia das pessoas é
+    // decidida por sorteio no generate-image.js, não aqui, pra não enviesar.
     imageWorlds: [
-      'pessoa brasileira sorrindo ao guardar moedas num cofrinho sobre a mesa da cozinha',
-      'jovem casal brasileiro conferindo as contas no celular, aliviado e otimista',
-      'mulher brasileira anotando metas num caderno de planejamento financeiro, xícara de café ao lado',
-      'família brasileira tomando café da manhã e conversando sobre a economia da casa',
-      'homem brasileiro no home office olhando um app de finanças no celular, satisfeito',
-      'pessoa idosa brasileira organizando notas e recibos na sala de estar aconchegante',
-      'mãe e filho brasileiros colocando moedas juntos num cofrinho de porquinho',
-      'jovem brasileira comemorando uma conquista financeira com o celular na mão',
+      'guardar moedas num cofrinho sobre a mesa da cozinha, clima otimista',
+      'conferir as contas no celular na sala, expressão de alívio',
+      'anotar metas num caderno de planejamento financeiro, xícara de café ao lado',
+      'café da manhã em casa com conversa sobre a economia doméstica',
+      'home office organizado com um app de finanças aberto no celular',
+      'organizar notas e recibos na sala de estar aconchegante',
+      'cofrinho de porquinho, moedas e notas arrumadas sobre uma mesa de madeira',
+      'comemorar uma conquista financeira em casa, celular na mão',
     ],
     imageWorld:
-      'pessoas brasileiras do dia a dia lidando com dinheiro e economia doméstica de forma positiva (guardando dinheiro, planejando metas, conferindo o app, comemorando conquistas em casa)',
+      'cenas do dia a dia ligadas a dinheiro e economia doméstica de forma positiva (guardar dinheiro, planejar metas, conferir o app, comemorar conquistas em casa)',
     writingRules: [],
   },
   rachel: {
@@ -47,18 +49,20 @@ export const CLIENTS = {
     // Vários "mundos" visuais possíveis — um é sorteado a cada geração pra
     // evitar que a IA de imagem sempre convirja pro mesmo objeto/cenário
     // (antes era só uma frase fixa, e o resultado saía quase sempre igual).
+    // Cenas neutras (sem fixar quem aparece) — a presença/etnia das pessoas é
+    // decidida por sorteio no generate-image.js, não aqui, pra não enviesar.
     imageWorlds: [
-      'psicóloga acolhendo uma pessoa em sessão num consultório aconchegante, luz natural suave',
-      'pessoa serena tomando um chá junto à janela, expressão calma e introspectiva',
-      'mulher adulta escrevendo num diário em casa, momento de autoconhecimento',
-      'pessoa idosa conversando com carinho com uma psicóloga numa sala tranquila',
-      'adolescente em conversa acolhedora com uma profissional, ambiente seguro e leve',
-      'duas pessoas caminhando e conversando ao ar livre em luz suave, clima de escuta',
-      'pessoa respirando fundo com os olhos fechados numa varanda tranquila com plantas',
-      'mãos de duas pessoas em gesto de apoio durante uma conversa acolhedora',
+      'sessão de psicoterapia acolhedora num consultório aconchegante, luz natural suave',
+      'momento sereno tomando um chá junto à janela, clima calmo e introspectivo',
+      'escrever num diário em casa, momento de autoconhecimento',
+      'conversa carinhosa numa sala tranquila, clima de escuta',
+      'conversa acolhedora entre profissional e paciente, ambiente seguro e leve',
+      'caminhada e conversa ao ar livre em luz suave, clima de escuta',
+      'respiração e pausa numa varanda tranquila com plantas, olhos fechados',
+      'gesto de apoio e mãos dadas durante uma conversa acolhedora',
     ],
     imageWorld:
-      'pessoas em cenas de acolhimento e bem-estar emocional: sessões de escuta, momentos de autoconhecimento, conversas serenas em ambientes calmos e humanos — nunca clichês de "loucura" ou clínica fria',
+      'cenas de acolhimento e bem-estar emocional: sessões de escuta, momentos de autoconhecimento, conversas serenas em ambientes calmos e humanos — nunca clichês de "loucura" ou clínica fria',
     // Regras de conteúdo específicas pra evitar o "cheirinho de IA genérica" e
     // problemas éticos (CRP proíbe promessa de cura/resultado e sensacionalismo).
     writingRules: [

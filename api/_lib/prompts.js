@@ -153,10 +153,9 @@ export function imageIdeaPrompt(postText, look, client, world) {
     'Parta deste universo visual como ponto de partida (adapte livremente): ' +
     (world || client.imageWorld) +
     '. ' +
-    'OBRIGATÓRIO: a cena deve ter PESSOAS reais como elemento principal (uma ou mais), interagindo naturalmente com o cenário — não uma cena vazia só de objetos. ' +
-    'Descreva quem são e o que fazem (gesto, expressão, ação concreta), variando idade, etnia e contexto entre as sugestões. ' +
+    peopleClauseIdea(look) +
     'Descreva objetos, cenário e clima da cena de forma bem específica e concreta (nada genérico). NÃO inclua texto/letras/logotipos na descrição. ' +
-    'NÃO repita cenas óbvias sempre iguais — cada sugestão deve ser visualmente DIFERENTE das anteriores, variando ângulo, pessoas, objetos, cenário e clima. ' +
+    'NÃO repita cenas óbvias sempre iguais — cada sugestão deve ser visualmente DIFERENTE das anteriores, variando ângulo, objetos, cenário e clima. ' +
     'Responda APENAS com a frase da cena, sem aspas, sem explicações.'
   const user =
     'Texto do post: "' +
@@ -174,6 +173,48 @@ function lookLine(look) {
   return [look.angle, look.lens, look.light, look.time, look.composition, look.mood]
     .filter(Boolean)
     .join('; ')
+}
+
+/**
+ * Cláusula de PESSOAS para o prompt de IDEIA de cena.
+ * Nem toda cena tem gente (look.withPeople), e quando tem, a etnia vem
+ * sorteada por imagem (look.ethnicity) para evitar viés/repetição.
+ */
+function peopleClauseIdea(look) {
+  if (!look || !look.withPeople) {
+    return 'Esta cena NÃO deve ter pessoas — foque no ambiente, objetos e clima, sem figuras humanas. '
+  }
+  const who = look.ethnicity || 'pessoa'
+  return (
+    'A cena deve ter pessoas como elemento principal. Inclua ao menos ' +
+    who +
+    ' (idade e contexto à sua escolha), interagindo naturalmente com o cenário. ' +
+    'Descreva quem são e o que fazem (gesto, expressão, ação concreta). '
+  )
+}
+
+/**
+ * Cláusula de PESSOAS para o prompt de IMAGEM final. Espelha look.withPeople /
+ * look.ethnicity, com a etnia como âncora concreta (a IA ignora "varie etnia"
+ * genérico em geração isolada e converge sempre pro mesmo estereótipo).
+ */
+function peopleClauseImage(look, promo) {
+  if (!look || !look.withPeople) {
+    return 'Esta imagem NÃO deve conter pessoas nem figuras humanas — só ambiente, objetos, materiais e luz. '
+  }
+  const who = look.ethnicity || 'uma pessoa'
+  if (promo) {
+    return (
+      'A imagem deve ter pessoas como protagonistas — inclua ' +
+      who +
+      ' fotografada como modelo de campanha publicitária, expressão marcante e aspiracional, interagindo com a cena. '
+    )
+  }
+  return (
+    'A imagem deve ter pessoas como elemento principal — inclua ' +
+    who +
+    ', gente de verdade vivendo a cena com naturalidade (gesto, expressão e ação autênticos, nada posado demais). '
+  )
 }
 
 /**
@@ -203,11 +244,7 @@ export function imagePrompt(userIdea, client, look) {
     'NÃO faça ilustração flat, NÃO faça vetor, NÃO faça desenho geométrico simples — o resultado deve parecer uma FOTO REAL, ' +
     'batida com câmera profissional (lente boa, profundidade de campo, texturas e materiais reais e ricos em detalhe: ' +
     'madeira, tecido, papel, vidro, metal, pele, plantas, ambientes reais). '
-  const people = promo
-    ? 'OBRIGATÓRIO: a imagem deve mostrar PESSOAS reais como protagonistas — modelo(s) fotografado(s) como em campanha publicitária, ' +
-      'expressão marcante e aspiracional, interagindo com a cena. Varie idade e etnia; representação diversa e natural. '
-    : 'OBRIGATÓRIO: a imagem deve mostrar PESSOAS reais como elemento principal — gente de verdade vivendo a cena com naturalidade ' +
-      '(gesto, expressão e ação autênticos, nada posado demais). Varie idade e etnia; representação diversa e natural. '
+  const people = peopleClauseImage(look, promo)
   const direction = look ? 'Direção de arte OBRIGATÓRIA para esta imagem: ' + lookLine(look) + '. ' : ''
   const brandColor = promo
     ? 'Use com força as cores da marca — ' +
@@ -221,8 +258,11 @@ export function imagePrompt(userIdea, client, look) {
     'Deixe uma área de respiro limpa e proposital (não precisa ser o centro) para sobrepor texto depois. '
   const unique =
     'IMPORTANTE: cada imagem deve ser visualmente ÚNICA e diferente das anteriores — varie ângulo, enquadramento, distância da câmera, hora do dia e disposição dos objetos; NÃO repita a mesma composição "segura" de plano geral com fundo desfocado. '
+  const withPeople = look && look.withPeople
   const quality =
-    'Altíssima resolução, riqueza de textura e realismo fotográfico; rostos e mãos das pessoas anatomicamente corretos e naturais, sem deformações. ' +
+    'Altíssima resolução, riqueza de textura e realismo fotográfico' +
+    (withPeople ? '; rostos e mãos das pessoas anatomicamente corretos e naturais, sem deformações' : '') +
+    '. ' +
     "SEM texto, SEM letras, SEM números, SEM logotipos, SEM marcas d'água, SEM aparência de ilustração/cartoon/3D genérico. "
   return (
     base +
