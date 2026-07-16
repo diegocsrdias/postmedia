@@ -4,6 +4,9 @@ import { getClient } from './_lib/clients.js'
 
 // Direcionamentos criativos sorteados a cada leva. Servem pra IA não convergir
 // sempre no mesmo tipo de texto — cada geração parte de ângulos diferentes.
+// Estes são os PUBLICITÁRIOS (padrão). Clientes editoriais definem os seus em
+// `client.directions` — vários daqui ("custo de não agir", "objeção de quem
+// hesita", "exagero") seriam impróprios pra um serviço de saúde.
 const DIRECTIONS = [
   'foque numa dor concreta e cotidiana do público',
   'traga um benefício específico e mensurável',
@@ -21,10 +24,11 @@ const DIRECTIONS = [
   'celebre uma pequena vitória do público',
 ]
 
-/** Sorteia `k` direcionamentos distintos. */
-function sampleDirections(k) {
+/** Sorteia `k` direcionamentos distintos do repertório do cliente. */
+function sampleDirections(k, client) {
+  const source = (client && client.directions) || DIRECTIONS
   const out = []
-  const pool = DIRECTIONS.slice()
+  const pool = source.slice()
   for (let i = 0; i < k && pool.length; i++) {
     const idx = Math.floor(Math.random() * pool.length)
     out.push(pool.splice(idx, 1)[0])
@@ -39,7 +43,8 @@ export default async function handler(req, res) {
     const client = getClient(clientId)
     const count = Math.min(Math.max(Number(n) || 4, 1), 8)
     // um direcionamento por item (com teto), mais um sorteado extra pra variar
-    const directions = sampleDirections(Math.min(count + 1, DIRECTIONS.length))
+    const pool = client.directions || DIRECTIONS
+    const directions = sampleDirections(Math.min(count + 1, pool.length), client)
     const { system, user } = mixPrompt(count, client, directions, String(existing || ''))
     // temperature alta + presence/frequency penalty pra fugir da repetição
     const raw = await chat({

@@ -1,6 +1,6 @@
 import { chat, image, preflight, readJson } from './_lib/openai.js'
 import { imageIdeaPrompt, imagePrompt } from './_lib/prompts.js'
-import { getClient, randomImageWorld } from './_lib/clients.js'
+import { getClient, isEditorial, randomImageWorld } from './_lib/clients.js'
 
 const SIZES = {
   square: '1024x1024',
@@ -96,6 +96,8 @@ function pick(arr) {
 }
 
 // Nem toda imagem precisa de pessoas — ~70% com gente, ~30% só cena/objetos.
+// Clientes editoriais podem baixar isso via `peopleProbability`: em saúde, cena
+// de ambiente é mais sóbria (e mais segura) do que gente encenando emoção.
 const PEOPLE_PROBABILITY = 0.7
 
 // Etnia sorteada POR imagem. Cada geração é isolada (o modelo não lembra das
@@ -113,11 +115,17 @@ const ETHNICITIES = [
   'pessoa idosa de cabelos grisalhos',
 ]
 
-/** Sorteia uma direção de arte combinatória para o modo pedido. */
-function randomLook(mode) {
-  const m = mode === 'promo' ? 'promo' : 'editorial'
+/**
+ * Sorteia uma direção de arte combinatória para o modo pedido.
+ * Clientes editoriais nunca entram no modo promo: néon, luz dramática e
+ * "pessoa-herói" leem como propaganda e destroem a credibilidade de um
+ * serviço de saúde, independente do que o front pedir.
+ */
+function randomLook(mode, client) {
+  const m = mode === 'promo' && !isEditorial(client) ? 'promo' : 'editorial'
   const ax = AXES[m]
-  const withPeople = Math.random() < PEOPLE_PROBABILITY
+  const p = typeof client?.peopleProbability === 'number' ? client.peopleProbability : PEOPLE_PROBABILITY
+  const withPeople = Math.random() < p
   return {
     mode: m,
     angle: pick(ax.angle),
@@ -148,7 +156,7 @@ export default async function handler(req, res) {
     // 1) IA de texto sugere uma cena que faça sentido com o conteúdo do post,
     //    sorteando um "mundo visual" e uma direção de arte combinatória
     //    (modo editorial ou propaganda) diferentes a cada chamada.
-    const look = randomLook(mode)
+    const look = randomLook(mode, client)
     const world = randomImageWorld(client)
     const { system, user } = imageIdeaPrompt(rawText, look, client, world)
     let sceneIdea = rawText

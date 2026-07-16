@@ -51,11 +51,21 @@ export interface ClientImages {
   badgeIcon?: string
 }
 
+/**
+ * Voz da marca. `publicitario` é o padrão (marca de consumo); `editorial` é
+ * para serviço profissional regulado (saúde, direito), onde retórica de venda
+ * é inadequada — some com o botão de imagem de propaganda e muda o enquadramento
+ * dos prompts no servidor (ver api/_lib/clients.js).
+ */
+export type ClientVoice = 'publicitario' | 'editorial'
+
 /** Configuração completa de um cliente da plataforma. */
 export interface ClientConfig {
   id: string
   /** Nome de exibição no menu de clientes. */
   name: string
+  /** Voz da marca; ausente equivale a `publicitario`. */
+  voice?: ClientVoice
   /** [primeira palavra, segunda palavra em destaque] usado nos rodapés da marca. */
   brandParts: [string, string]
   /** Texto pequeno (mono) perto da logo — domínio, CRP, etc. */

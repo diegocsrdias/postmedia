@@ -35,6 +35,8 @@ export function CreativeCard(props: Props) {
   const { c, idx, square, isStory, frameW, frameH, scaleStr, innerW, innerH, client } = props
   const strat = STRAT[c.layout] ?? ({} as (typeof STRAT)[keyof typeof STRAT])
   const editFields = EDIT_FIELDS[c.layout] ?? []
+  // Marcas editoriais (saúde) não geram imagem de propaganda — ver ClientVoice.
+  const editorial = client.voice === 'editorial'
 
   // Botão flutuante sobre o preview (gerar/remover fundo por IA).
   const floatBtn: CSSProperties = {
@@ -126,14 +128,16 @@ export function CreativeCard(props: Props) {
             >
               🎨 {c.bgImage ? 'Foto' : 'Foto IA'}
             </button>
-            <button
-              onClick={() => props.onGenImage(idx, 'promo')}
-              disabled={props.busy}
-              title="Gerar imagem de propaganda (vibrante e chamativa) por IA"
-              style={{ ...floatBtn, background: UI.accent }}
-            >
-              📣 Propaganda
-            </button>
+            {!editorial && (
+              <button
+                onClick={() => props.onGenImage(idx, 'promo')}
+                disabled={props.busy}
+                title="Gerar imagem de propaganda (vibrante e chamativa) por IA"
+                style={{ ...floatBtn, background: UI.accent }}
+              >
+                📣 Propaganda
+              </button>
+            )}
           </div>
 
           {/* overlay enquanto a IA gera a imagem deste card */}
