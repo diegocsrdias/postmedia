@@ -34,12 +34,12 @@ export default function App() {
 
   const [format, setFormat] = useState<Format>('square')
   const [filter, setFilter] = useState<Filter>('all')
-  const [count, setCount] = useState(4)
+  const [count, setCount] = useState(3)
   const [videoCaptionOn, setVideoCaptionOn] = useState(false)
   const [theme, setTheme] = useState('')
   const [generating, setGenerating] = useState(false)
   const [creatives, setCreatives] = useState<Creative[]>(() =>
-    pickFresh(getClient(getInitialClientId()).bank, 4, 'all', []),
+    pickFresh(getClient(getInitialClientId()).bank, 3, 'all', []),
   )
   const [toast, setToast] = useState('')
   const toastTimer = useRef<number | undefined>(undefined)
