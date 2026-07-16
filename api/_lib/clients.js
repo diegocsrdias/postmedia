@@ -16,17 +16,17 @@ export const CLIENTS = {
     // Vários "mundos" visuais possíveis — um é sorteado a cada geração pra
     // evitar que a IA de imagem sempre convirja pro mesmo objeto/cenário.
     imageWorlds: [
-      'cofrinho de porcelana ao lado de moedas e notas de real sobre uma mesa de madeira',
-      'carteira de couro aberta com notas e cartão sobre uma superfície neutra',
-      'caderno de planejamento financeiro aberto com gráficos desenhados à mão e uma caneta',
-      'mesa de café da manhã organizada, com celular mostrando um app e xícara de café',
-      'sala de estar brasileira aconchegante e organizada, luz de fim de tarde',
-      'pilha de notas de dinheiro brasileiro cuidadosamente arrumadas ao lado de uma calculadora',
-      'jarra de vidro tipo cofrinho com moedas, sobre uma prateleira de casa organizada',
-      'mesa de trabalho home office com laptop, agenda e xícara, ambiente limpo e produtivo',
+      'pessoa brasileira sorrindo ao guardar moedas num cofrinho sobre a mesa da cozinha',
+      'jovem casal brasileiro conferindo as contas no celular, aliviado e otimista',
+      'mulher brasileira anotando metas num caderno de planejamento financeiro, xícara de café ao lado',
+      'família brasileira tomando café da manhã e conversando sobre a economia da casa',
+      'homem brasileiro no home office olhando um app de finanças no celular, satisfeito',
+      'pessoa idosa brasileira organizando notas e recibos na sala de estar aconchegante',
+      'mãe e filho brasileiros colocando moedas juntos num cofrinho de porquinho',
+      'jovem brasileira comemorando uma conquista financeira com o celular na mão',
     ],
     imageWorld:
-      'objetos e cenas ligadas a dinheiro, economia doméstica e vida financeira das pessoas no Brasil (cofrinhos, carteiras, notas, planejamento, casa organizada)',
+      'pessoas brasileiras do dia a dia lidando com dinheiro e economia doméstica de forma positiva (guardando dinheiro, planejando metas, conferindo o app, comemorando conquistas em casa)',
     writingRules: [],
   },
   rachel: {
@@ -48,17 +48,17 @@ export const CLIENTS = {
     // evitar que a IA de imagem sempre convirja pro mesmo objeto/cenário
     // (antes era só uma frase fixa, e o resultado saía quase sempre igual).
     imageWorlds: [
-      'consultório de psicologia aconchegante, poltrona de tecido, luz natural suave entrando pela janela',
-      'mesa de madeira clara com caderno aberto, caneta e uma xícara de chá fumegante',
-      'janela grande com cortina leve balançando, planta ao lado, luz suave da manhã',
-      'estante de livros de psicologia organizada, com uma planta pequena e um porta-retrato discreto',
-      'mãos segurando uma xícara quente sobre um colo, tricô ou manta ao fundo, ambiente calmo',
-      'varanda ou jardim tranquilo com poltrona de vime, plantas e luz filtrada por folhas',
-      'mesa de centro com bloco de anotações, óculos e uma vela apagada, atmosfera serena',
-      'caminho ou trilha ao ar livre em luz suave, transmitindo introspecção e caminhada interior',
+      'psicóloga acolhendo uma pessoa em sessão num consultório aconchegante, luz natural suave',
+      'pessoa serena tomando um chá junto à janela, expressão calma e introspectiva',
+      'mulher adulta escrevendo num diário em casa, momento de autoconhecimento',
+      'pessoa idosa conversando com carinho com uma psicóloga numa sala tranquila',
+      'adolescente em conversa acolhedora com uma profissional, ambiente seguro e leve',
+      'duas pessoas caminhando e conversando ao ar livre em luz suave, clima de escuta',
+      'pessoa respirando fundo com os olhos fechados numa varanda tranquila com plantas',
+      'mãos de duas pessoas em gesto de apoio durante uma conversa acolhedora',
     ],
     imageWorld:
-      'cenas de acolhimento e bem-estar emocional: consultório aconchegante, luz natural suave, plantas, xícara de chá, caderno e caneta, ambiente calmo — nunca clichês de "loucura" ou clínica fria',
+      'pessoas em cenas de acolhimento e bem-estar emocional: sessões de escuta, momentos de autoconhecimento, conversas serenas em ambientes calmos e humanos — nunca clichês de "loucura" ou clínica fria',
     // Regras de conteúdo específicas pra evitar o "cheirinho de IA genérica" e
     // problemas éticos (CRP proíbe promessa de cura/resultado e sensacionalismo).
     writingRules: [

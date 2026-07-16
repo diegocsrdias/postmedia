@@ -15,19 +15,19 @@ const SIZES = {
 const AXES = {
   editorial: {
     angle: [
-      'ângulo baixo, quase rente à superfície',
-      'vista de cima (flat lay)',
-      'foto na altura dos olhos, frontal',
-      'ângulo diagonal de três quartos',
-      'câmera por cima do ombro, olhando a cena',
-      'plano detalhe bem aproximado (close-up)',
+      'ângulo baixo, olhando para a pessoa',
+      'plano médio da pessoa no ambiente',
+      'foto na altura dos olhos, frontal com a pessoa',
+      'ângulo diagonal de três quartos sobre a pessoa',
+      'câmera por cima do ombro da pessoa, vendo a cena',
+      'close-up no rosto e nas mãos da pessoa',
     ],
     lens: [
-      'lente 35mm, cena inteira em foco',
-      'lente 50mm, profundidade natural',
-      'lente 85mm com fundo bem desfocado (bokeh)',
-      'macro com foco raso em um único detalhe',
-      'grande-angular suave, sensação de amplitude',
+      'lente 35mm, pessoa dentro do ambiente em foco',
+      'lente 50mm, retrato com profundidade natural',
+      'lente 85mm com a pessoa em foco e fundo desfocado (bokeh)',
+      'foco raso no rosto, com um gesto em destaque',
+      'grande-angular suave, pessoa e ambiente amplos',
     ],
     light: [
       'luz quente entrando de lado por uma janela',
@@ -56,17 +56,17 @@ const AXES = {
   // Modo propaganda: os mesmos eixos, mas puxados pro dramático/vendedor.
   promo: {
     angle: [
-      'ângulo baixo heroico, o assunto imponente',
-      'close-up dramático no produto/herói',
-      'diagonal dinâmica com muita energia',
-      'plano frontal forte, direto no assunto',
-      'vista de cima marcante e organizada (knolling)',
+      'ângulo baixo heroico, a pessoa imponente',
+      'close-up dramático no rosto da pessoa (herói)',
+      'diagonal dinâmica com a pessoa em movimento e energia',
+      'plano frontal forte, direto na pessoa',
+      'plano médio poderoso da pessoa em destaque',
     ],
     lens: [
-      'lente 85mm, herói em foco cortante e fundo cremoso',
-      'macro publicitário, detalhe irresistível',
-      'grande-angular com perspectiva impactante',
-      'lente 50mm nítida, produto no centro da atenção',
+      'lente 85mm, pessoa-herói em foco cortante e fundo cremoso',
+      'retrato publicitário aproximado, expressão irresistível',
+      'grande-angular com perspectiva impactante sobre a pessoa',
+      'lente 50mm nítida, pessoa no centro da atenção',
     ],
     light: [
       'iluminação dramática de estúdio, realces marcados',
@@ -77,10 +77,10 @@ const AXES = {
     ],
     time: ['estúdio sem hora definida', 'golden hour intensa', 'noite com luzes vibrantes'],
     composition: [
-      'herói centralizado e dominante, resto desfocado',
+      'pessoa-herói centralizada e dominante, resto desfocado',
       'composição ousada com forte contraste de cor',
-      'muito espaço para chamada, produto num canto de destaque',
-      'camadas de profundidade puxando o olho pro herói',
+      'muito espaço para chamada, pessoa num canto de destaque',
+      'camadas de profundidade puxando o olho pra pessoa',
     ],
     mood: [
       'clima aspiracional e desejável',
