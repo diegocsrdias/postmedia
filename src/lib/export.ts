@@ -60,30 +60,128 @@ function roundRect(
   c.closePath()
 }
 
+/** Um slide do vídeo: o nó a capturar e a legenda animada daquele trecho. */
+export interface ReelsSlide {
+  node: HTMLElement
+  vcap: string
+}
+
+/** Desenha um único slide no contexto, com Ken Burns + shimmer + legenda + fades.
+ *  `p` é o progresso 0..1 DENTRO do slide; `first`/`last` controlam os fades
+ *  de entrada/saída (para emendar slides sem piscar preto). */
+function drawSlide(
+  ctx: CanvasRenderingContext2D,
+  base: HTMLCanvasElement,
+  W: number,
+  H: number,
+  p: number,
+  cap: string,
+  captionOn: boolean,
+  first: boolean,
+  last: boolean,
+): void {
+  ctx.clearRect(0, 0, W, H)
+  // Ken Burns zoom 1.0 -> 1.07
+  const zoom = 1 + 0.07 * p
+  const dw = W * zoom
+  const dh = H * zoom
+  const dx = (W - dw) / 2
+  const dy = (H - dh) * 0.35
+  ctx.drawImage(base, dx, dy, dw, dh)
+  // shimmer sweep (first 45% of the slide)
+  if (p < 0.45) {
+    const sp = p / 0.45
+    const cx = -0.4 + 1.8 * sp
+    const gx = cx * W
+    const grd = ctx.createLinearGradient(gx - 220, 0, gx + 220, H)
+    grd.addColorStop(0, 'rgba(255,255,255,0)')
+    grd.addColorStop(0.5, 'rgba(224,238,133,0.28)')
+    grd.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = grd
+    ctx.fillRect(0, 0, W, H)
+  }
+  // animated caption band (word-by-word), revelada ao longo dos primeiros 55%
+  if (captionOn && cap) {
+    ctx.font = '800 60px Inter, sans-serif'
+    const maxW = 880
+    const revealP = Math.min(1, p / 0.55)
+    const allWords = cap.split(/\s+/)
+    const shown = Math.max(1, Math.ceil(allWords.length * revealP))
+    const text = allWords.slice(0, shown).join(' ')
+    const lines = wrap(ctx, text, maxW)
+    const lh = 78
+    const padX = 42
+    const padY = 30
+    let bw = 0
+    lines.forEach((l) => {
+      bw = Math.max(bw, ctx.measureText(l).width)
+    })
+    bw = Math.min(maxW, bw) + padX * 2
+    const bh = lines.length * lh + padY * 2
+    const bx = (W - bw) / 2
+    const by = 1500 - bh / 2
+    ctx.fillStyle = 'rgba(20,20,43,0.85)'
+    roundRect(ctx, bx, by, bw, bh, 22)
+    ctx.fill()
+    ctx.fillStyle = '#F6F2EA'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    lines.forEach((l, i) => {
+      ctx.fillText(l, W / 2, by + padY + lh / 2 + i * lh)
+    })
+    ctx.textAlign = 'start'
+    ctx.textBaseline = 'alphabetic'
+  }
+  // fade de entrada (primeiros 12% do slide) e de saída (últimos 12%)
+  const fadeFrac = 0.12
+  let veil = 0
+  if (p < fadeFrac) veil = 1 - p / fadeFrac
+  else if (!last && p > 1 - fadeFrac) veil = (p - (1 - fadeFrac)) / fadeFrac
+  // o primeiro slide entra a partir do preto; os demais fazem crossfade suave
+  if (veil > 0) {
+    ctx.fillStyle = 'rgba(48,48,120,' + (first ? veil : veil * 0.9) + ')'
+    ctx.fillRect(0, 0, W, H)
+  }
+}
+
 /**
- * Gera um Reels de ~6s (1080×1920) a partir do nó do criativo:
+ * Gera um Reels (1080×1920) a partir de um ou mais slides:
  * Ken Burns + shimmer + legenda animada palavra a palavra. Baixa mp4/webm.
+ *
+ * - Um único slide → vídeo simples de `durationMs`.
+ * - Vários slides → carrossel: o tempo total é dividido igualmente entre eles.
+ *
+ * O timing é cravado num relógio de parede real (setTimeout) — NÃO depende de
+ * quantos frames o requestAnimationFrame entrega — por isso a duração final é
+ * sempre a pedida (corrige o bug do vídeo que saía com ~metade do tempo quando
+ * o navegador dava throttling no rAF).
  */
 export async function downloadReels(
-  node: HTMLElement,
+  slides: ReelsSlide[],
   idx: number,
-  vcap: string,
   captionOn: boolean,
+  durationMs: number,
   clientSlug: string = 'dindin',
 ): Promise<void> {
-  const prev = node.style.transform
-  node.style.transform = 'none'
-  let base: HTMLCanvasElement
-  try {
-    base = await html2canvas(node, {
-      scale: 2,
-      backgroundColor: null,
-      useCORS: true,
-      logging: false,
-    })
-  } finally {
-    node.style.transform = prev
+  // Captura cada slide em bitmap nativo (resetando o scale de preview).
+  const bases: HTMLCanvasElement[] = []
+  for (const s of slides) {
+    const prev = s.node.style.transform
+    s.node.style.transform = 'none'
+    try {
+      bases.push(
+        await html2canvas(s.node, {
+          scale: 2,
+          backgroundColor: null,
+          useCORS: true,
+          logging: false,
+        }),
+      )
+    } finally {
+      s.node.style.transform = prev
+    }
   }
+  if (!bases.length) throw new Error('Nada para gravar')
 
   const W = 1080
   const H = 1920
@@ -128,84 +226,55 @@ export async function downloadReels(
     }
   })
 
-  const DUR = 6000
+  const DUR = Math.max(1000, durationMs)
+  const perSlide = DUR / bases.length
   const start = performance.now()
-  rec.start()
+  // requestData a cada 250ms garante que os chunks cheguem mesmo em vídeos longos
+  rec.start(250)
 
-  const cap = (vcap || '').trim()
-
-  const draw = (now: number) => {
-    const t = Math.min(1, (now - start) / DUR)
-    ctx.clearRect(0, 0, W, H)
-    // Ken Burns zoom 1.0 -> 1.07
-    const zoom = 1 + 0.07 * t
-    const dw = W * zoom
-    const dh = H * zoom
-    const dx = (W - dw) / 2
-    const dy = (H - dh) * 0.35
-    ctx.drawImage(base, dx, dy, dw, dh)
-    // shimmer sweep (first 45%)
-    if (t < 0.45) {
-      const p = t / 0.45
-      const cx = -0.4 + 1.8 * p
-      const gx = cx * W
-      const grd = ctx.createLinearGradient(gx - 220, 0, gx + 220, H)
-      grd.addColorStop(0, 'rgba(255,255,255,0)')
-      grd.addColorStop(0.5, 'rgba(224,238,133,0.28)')
-      grd.addColorStop(1, 'rgba(255,255,255,0)')
-      ctx.fillStyle = grd
-      ctx.fillRect(0, 0, W, H)
-    }
-    // animated caption band (word-by-word)
-    if (captionOn && cap) {
-      ctx.font = '800 60px Inter, sans-serif'
-      const maxW = 880
-      const revealP = Math.min(1, (now - start) / (DUR * 0.55))
-      const allWords = cap.split(/\s+/)
-      const shown = Math.max(1, Math.ceil(allWords.length * revealP))
-      const text = allWords.slice(0, shown).join(' ')
-      const lines = wrap(ctx, text, maxW)
-      const lh = 78
-      const padX = 42
-      const padY = 30
-      let bw = 0
-      lines.forEach((l) => {
-        bw = Math.max(bw, ctx.measureText(l).width)
-      })
-      bw = Math.min(maxW, bw) + padX * 2
-      const bh = lines.length * lh + padY * 2
-      const bx = (W - bw) / 2
-      const by = 1500 - bh / 2
-      ctx.fillStyle = 'rgba(20,20,43,0.85)'
-      roundRect(ctx, bx, by, bw, bh, 22)
-      ctx.fill()
-      ctx.fillStyle = '#F6F2EA'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      lines.forEach((l, i) => {
-        ctx.fillText(l, W / 2, by + padY + lh / 2 + i * lh)
-      })
-      ctx.textAlign = 'start'
-      ctx.textBaseline = 'alphabetic'
-    }
-    // fade-in first 0.4s
-    if (now - start < 400) {
-      ctx.fillStyle = 'rgba(48,48,120,' + (1 - (now - start) / 400) + ')'
-      ctx.fillRect(0, 0, W, H)
-    }
-    if (now - start < DUR) {
-      requestAnimationFrame(draw)
-    } else {
-      try {
-        rec.stop()
-      } catch {
-        /* noop */
-      }
+  let stopped = false
+  const stop = () => {
+    if (stopped) return
+    stopped = true
+    // desenha o último quadro cheio antes de parar
+    const li = bases.length - 1
+    drawSlide(ctx, bases[li], W, H, 1, slides[li].vcap.trim(), captionOn, li === 0, true)
+    try {
+      rec.stop()
+    } catch {
+      /* noop */
     }
   }
-  requestAnimationFrame(draw)
 
-  await done
+  const draw = () => {
+    if (stopped) return
+    const elapsed = performance.now() - start
+    // índice do slide atual e progresso dentro dele
+    let si = Math.floor(elapsed / perSlide)
+    if (si >= bases.length) si = bases.length - 1
+    const p = Math.min(1, (elapsed - si * perSlide) / perSlide)
+    drawSlide(
+      ctx,
+      bases[si],
+      W,
+      H,
+      p,
+      slides[si].vcap.trim(),
+      captionOn,
+      si === 0,
+      si === bases.length - 1,
+    )
+    requestAnimationFrame(draw)
+  }
+  requestAnimationFrame(draw)
+  // A PARADA é cravada no relógio de parede — independe do rAF.
+  const timer = setTimeout(stop, DUR)
+
+  try {
+    await done
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /** Copia texto para a área de transferência, com fallback para execCommand. */

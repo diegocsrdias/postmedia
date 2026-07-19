@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CreativeCard } from './components/CreativeCard'
+import { CreativeCanvas } from './components/CreativeCanvas'
 import { CLIENT_LIST, DEFAULT_CLIENT, getClient } from './clients'
 import type { ClientId } from './clients'
 import { ANGLE_LABELS, ANGLE_ORDER } from './data/shared'
@@ -48,6 +49,8 @@ export default function App() {
   const [toast, setToast] = useState('')
   const toastTimer = useRef<number | undefined>(undefined)
   const recording = useRef(false)
+  // slides do carrossel (12s/20s) — renderizados fora da tela só para captura
+  const [carouselSlides, setCarouselSlides] = useState<Creative[]>([])
 
   const availableAngles = useMemo(() => {
     const angleSet = new Set(client.bank.map((item) => item.angle))
@@ -290,21 +293,81 @@ export default function App() {
     }
   }
 
-  const doVideo = async (idx: number) => {
-    const node = document.querySelector<HTMLElement>('[data-cap="' + idx + '"]')
-    if (!node) {
-      flash('Aguarde carregar…')
+  /**
+   * Baixa o vídeo do card.
+   * - 6s: grava só este criativo (nó já na tela).
+   * - 12s/20s: monta um CARROSSEL — gera slides novos com IA (só arte de
+   *   texto/layout, sem foto por IA), renderiza-os num container oculto,
+   *   captura cada um e emenda tudo num vídeo só. 12s→2 slides, 20s→3 slides.
+   */
+  const doVideo = async (idx: number, durationMs: number) => {
+    if (recording.current) return
+
+    // ---- vídeo simples de 6s: usa o card já renderizado ----
+    if (durationMs <= 6000) {
+      const node = document.querySelector<HTMLElement>('[data-cap="' + idx + '"]')
+      if (!node) {
+        flash('Aguarde carregar…')
+        return
+      }
+      recording.current = true
+      flash('Gravando vídeo… ~6s')
+      try {
+        await downloadReels(
+          [{ node, vcap: creatives[idx].vcap }],
+          idx,
+          videoCaptionOn,
+          durationMs,
+          client.id,
+        )
+        flash('Vídeo baixado! 🎬')
+      } catch {
+        flash('Erro ao gerar vídeo')
+      } finally {
+        recording.current = false
+      }
       return
     }
-    if (recording.current) return
+
+    // ---- carrossel (12s/20s): gera slides novos com IA ----
+    const nSlides = durationMs >= 20000 ? 3 : 2
+    if (generating) return
     recording.current = true
-    flash('Gravando vídeo… ~6s')
+    setGenerating(true)
+    setLoadingMsg('Criando carrossel de ' + nSlides + ' telas com IA…')
     try {
-      await downloadReels(node, idx, creatives[idx].vcap, videoCaptionOn, client.id)
-      flash('Vídeo baixado! 🎬')
-    } catch {
-      flash('Erro ao gerar vídeo')
+      const existing = creatives
+        .map((c) => c.f.headline || c.f.title || c.f.line1 || '')
+        .filter(Boolean)
+        .join(' | ')
+      let slides = await generateMix(nSlides, existing, client.id)
+      if (slides.length < nSlides) {
+        // completa com o banco offline pra não gravar carrossel curto
+        const fill = pickFresh(client.bank, nSlides - slides.length, 'all', [])
+        slides = slides.concat(fill).slice(0, nSlides)
+      }
+      // renderiza os slides ocultos e espera o React pintar
+      setCarouselSlides(slides)
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+      const nodes: { node: HTMLElement; vcap: string }[] = []
+      for (let s = 0; s < slides.length; s++) {
+        const node = document.querySelector<HTMLElement>(
+          '[data-carousel="' + s + '"] [data-cap]',
+        )
+        if (node) nodes.push({ node, vcap: slides[s].vcap })
+      }
+      if (!nodes.length) throw new Error('render')
+
+      setLoadingMsg('Gravando carrossel…')
+      await downloadReels(nodes, idx, videoCaptionOn, durationMs, client.id)
+      flash('Carrossel baixado! 🎬')
+    } catch (err) {
+      flash(aiError(err))
     } finally {
+      setCarouselSlides([])
+      setGenerating(false)
+      setLoadingMsg('')
       recording.current = false
     }
   }
@@ -353,6 +416,30 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: UI.bg }}>
+      {/* ===== Slides do carrossel (12s/20s) renderizados fora da tela =====
+          Ficam em tamanho nativo 1080×1920 (vídeo vertical) só para o
+          html2canvas capturar; não aparecem para o usuário. */}
+      {carouselSlides.length > 0 && (
+        <div
+          aria-hidden
+          style={{ position: 'fixed', left: -20000, top: 0, opacity: 0, pointerEvents: 'none' }}
+        >
+          {carouselSlides.map((slide, s) => (
+            <div key={slide._key + '-' + s} data-carousel={s} style={{ width: 1080, height: 1920 }}>
+              <CreativeCanvas
+                c={slide}
+                idx={s}
+                square={false}
+                scaleStr="1"
+                innerW={1080}
+                innerH={1920}
+                client={client}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ===== Top bar ===== */}
       <header
         className="app-header"
@@ -790,7 +877,7 @@ export default function App() {
               onRegen={regenerateOne}
               onCopy={(cardIdx) => void copyCaption(cardIdx)}
               onDownload={(cardIdx) => void doDownload(cardIdx)}
-              onVideo={(cardIdx) => void doVideo(cardIdx)}
+              onVideo={(cardIdx, durationMs) => void doVideo(cardIdx, durationMs)}
               onGenImage={(cardIdx, mode) => void genImage(cardIdx, mode)}
               onClearImage={clearImage}
               busy={generating}

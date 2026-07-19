@@ -23,7 +23,7 @@ interface Props {
   onRegen: (idx: number) => void
   onCopy: (idx: number) => void
   onDownload: (idx: number) => void
-  onVideo: (idx: number) => void
+  onVideo: (idx: number, durationMs: number) => void
   onGenImage: (idx: number, mode: ImageMode) => void
   onClearImage: (idx: number) => void
   busy: boolean
@@ -284,12 +284,33 @@ export function CreativeCard(props: Props) {
                 style={textarea}
               />
             </label>
-            <button
-              onClick={() => props.onVideo(idx)}
-              style={{ ...button('primary'), border: '2px solid ' + UI.darkBorder }}
-            >
-              🎬 Baixar Reels (vídeo ~6s)
-            </button>
+            <span style={fieldLabel}>🎬 Baixar vídeo</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => props.onVideo(idx, 6000)}
+                disabled={props.busy}
+                title="Reels de ~6s com este criativo"
+                style={{ ...button('primary'), flex: 1, border: '2px solid ' + UI.darkBorder }}
+              >
+                6s
+              </button>
+              <button
+                onClick={() => props.onVideo(idx, 12000)}
+                disabled={props.busy}
+                title="Carrossel de ~12s: a IA cria 2 telas novas e emenda num vídeo só"
+                style={{ ...button('ghost'), flex: 1 }}
+              >
+                12s <span style={{ fontSize: 11, opacity: 0.7 }}>carrossel</span>
+              </button>
+              <button
+                onClick={() => props.onVideo(idx, 20000)}
+                disabled={props.busy}
+                title="Carrossel de ~20s: a IA cria 3 telas novas e emenda num vídeo só"
+                style={{ ...button('ghost'), flex: 1 }}
+              >
+                20s <span style={{ fontSize: 11, opacity: 0.7 }}>carrossel</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
