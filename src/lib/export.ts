@@ -16,19 +16,6 @@ async function snapshot(node: HTMLElement): Promise<HTMLCanvasElement> {
   }
 }
 
-/** Baixa o nó do criativo como PNG (2x). */
-export async function downloadPng(
-  node: HTMLElement,
-  idx: number,
-  clientSlug: string = 'dindin',
-): Promise<void> {
-  const canvas = await snapshot(node)
-  const a = document.createElement('a')
-  a.href = canvas.toDataURL('image/png')
-  a.download = clientSlug + '-criativo-' + (idx + 1) + '.png'
-  a.click()
-}
-
 /** Captura o nó do criativo como data URL JPEG — leve, para enviar ao backend. */
 export async function captureJpeg(node: HTMLElement, quality = 0.92): Promise<string> {
   const canvas = await snapshot(node)
@@ -161,9 +148,45 @@ function drawSlide(
   }
 }
 
+/** Resultado da gravação: o vídeo e a extensão real (mp4 preferido). */
+export interface RecordedVideo {
+  blob: Blob
+  ext: 'mp4' | 'webm'
+}
+
 /**
- * Gera um Reels (1080×1920) a partir de um ou mais slides:
- * Ken Burns + shimmer + legenda animada palavra a palavra. Baixa mp4/webm.
+ * Adiciona uma faixa de áudio silenciosa ao stream. O Instagram aceita melhor
+ * um Reels/Story de vídeo que tenha trilha de áudio (mesmo mudo) — sem ela, a
+ * publicação às vezes é recusada. Devolve uma função de limpeza.
+ */
+function attachSilentAudio(stream: MediaStream): () => void {
+  try {
+    const AC: typeof AudioContext =
+      window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    const ac = new AC()
+    const dst = ac.createMediaStreamDestination()
+    const osc = ac.createOscillator()
+    const gain = ac.createGain()
+    gain.gain.value = 0 // mudo
+    osc.connect(gain).connect(dst)
+    osc.start()
+    for (const t of dst.stream.getAudioTracks()) stream.addTrack(t)
+    return () => {
+      try {
+        osc.stop()
+        void ac.close()
+      } catch {
+        /* noop */
+      }
+    }
+  } catch {
+    return () => {}
+  }
+}
+
+/**
+ * Grava um Reels (1080×1920) a partir de um ou mais slides:
+ * Ken Burns + shimmer + legenda animada palavra a palavra. Devolve o Blob.
  *
  * - Um único slide → vídeo simples de `durationMs`.
  * - Vários slides → carrossel: o tempo total é dividido igualmente entre eles.
@@ -173,13 +196,11 @@ function drawSlide(
  * sempre a pedida (corrige o bug do vídeo que saía com ~metade do tempo quando
  * o navegador dava throttling no rAF).
  */
-export async function downloadReels(
+export async function recordReels(
   slides: ReelsSlide[],
-  idx: number,
   captionOn: boolean,
   durationMs: number,
-  clientSlug: string = 'dindin',
-): Promise<void> {
+): Promise<RecordedVideo> {
   // Captura cada slide em bitmap nativo (resetando o scale de preview).
   const bases: HTMLCanvasElement[] = []
   for (const s of slides) {
@@ -208,6 +229,7 @@ export async function downloadReels(
   const ctx = cv.getContext('2d')!
 
   const tryTypes = [
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
     'video/mp4;codecs=avc1.42E01E',
     'video/mp4',
     'video/webm;codecs=vp9',
@@ -221,25 +243,20 @@ export async function downloadReels(
     }
   }
   if (!mime) throw new Error('Navegador sem suporte a vídeo')
-  const ext = mime.indexOf('mp4') >= 0 ? 'mp4' : 'webm'
+  const ext: 'mp4' | 'webm' = mime.indexOf('mp4') >= 0 ? 'mp4' : 'webm'
 
   const stream = cv.captureStream(30)
+  const cleanupAudio = attachSilentAudio(stream)
   const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 })
   const chunks: Blob[] = []
 
-  const done = new Promise<void>((resolve) => {
+  const done = new Promise<RecordedVideo>((resolve) => {
     rec.ondataavailable = (e) => {
       if (e.data && e.data.size) chunks.push(e.data)
     }
     rec.onstop = () => {
-      const blob = new Blob(chunks, { type: mime })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = clientSlug + '-reels-' + (idx + 1) + '.' + ext
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 4000)
-      resolve()
+      cleanupAudio()
+      resolve({ blob: new Blob(chunks, { type: mime }), ext })
     }
   })
 
@@ -288,36 +305,8 @@ export async function downloadReels(
   const timer = setTimeout(stop, DUR)
 
   try {
-    await done
+    return await done
   } finally {
     clearTimeout(timer)
-  }
-}
-
-/** Copia texto para a área de transferência, com fallback para execCommand. */
-export async function copyText(text: string): Promise<boolean> {
-  if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return true
-    } catch {
-      /* cai no fallback */
-    }
-  }
-  try {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    ta.style.position = 'fixed'
-    ta.style.top = '0'
-    ta.style.left = '0'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.focus()
-    ta.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(ta)
-    return ok
-  } catch {
-    return false
   }
 }

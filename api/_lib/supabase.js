@@ -40,6 +40,27 @@ export async function uploadMedia(path, buffer, contentType) {
   return data.publicUrl
 }
 
+/**
+ * Cria uma URL assinada para o navegador subir um arquivo direto ao bucket
+ * (sem passar pelo corpo da função — bom para vídeos grandes).
+ * Devolve { path, uploadUrl }.
+ */
+export async function createUploadUrl(path) {
+  const sb = supabase()
+  const { data, error } = await sb.storage.from(BUCKET).createSignedUploadUrl(path)
+  if (error) throw new Error('Supabase Storage: ' + error.message)
+  const url = process.env.SUPABASE_URL
+  // `signedUrl` vem como caminho relativo; monta a URL absoluta do endpoint de upload.
+  const uploadUrl = data.signedUrl.startsWith('http') ? data.signedUrl : url + '/storage/v1' + data.signedUrl
+  return { path: data.path || path, uploadUrl }
+}
+
+/** URL pública de um arquivo já no bucket. */
+export function publicUrl(path) {
+  const sb = supabase()
+  return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+}
+
 /** Insere uma linha em `posts` e devolve o registro criado. */
 export async function insertPost(row) {
   const sb = supabase()

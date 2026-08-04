@@ -149,6 +149,57 @@ export async function publishToInstagram(
   })
 }
 
+/** Onde publicar um vídeo vertical: no Story, nos Reels, ou em ambos. */
+export type StoryTarget = 'story' | 'reels'
+
+/**
+ * Sobe um vídeo (Blob) direto para o Storage do Supabase, via URL assinada
+ * pedida ao backend — evita o limite de corpo da função e mantém as chaves no
+ * servidor. Retorna o `path` do arquivo no bucket.
+ */
+export async function uploadVideo(blob: Blob, client: string, ext: string): Promise<string> {
+  const { uploadUrl, path } = await post<{ uploadUrl: string; path: string }>('ig-upload-url', {
+    client,
+    ext,
+  })
+  const contentType = ext === 'webm' ? 'video/webm' : 'video/mp4'
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType, 'x-upsert': 'true' },
+    body: blob,
+  })
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error('Falha no upload do vídeo: ' + res.status + ' ' + t.slice(0, 200))
+  }
+  return path
+}
+
+/**
+ * Publica um vídeo já hospedado (path no bucket) no Story e/ou nos Reels.
+ * Registra cada publicação em `posts`. Retorna os ids/links por alvo.
+ */
+export interface VideoPublishResult {
+  target: StoryTarget
+  id?: string
+  permalink?: string
+  error?: string
+}
+
+export async function publishVideoToInstagram(
+  path: string,
+  targets: StoryTarget[],
+  caption: string,
+  meta: PublishMeta,
+): Promise<{ results: VideoPublishResult[] }> {
+  return post<{ results: VideoPublishResult[] }>('ig-publish-video', {
+    path,
+    targets,
+    caption,
+    meta,
+  })
+}
+
 interface RawAd {
   f?: Record<string, string>
   caption?: string

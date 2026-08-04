@@ -62,7 +62,7 @@ export async function graph(path, params, method = 'POST') {
  * Espera o container de mídia terminar de processar antes de publicar.
  * Para imagem costuma ser instantâneo, mas publicar cedo demais devolve 400.
  */
-async function waitContainerReady(containerId, token, tries = 8) {
+async function waitContainerReady(containerId, token, { tries = 8, intervalMs = 1500 } = {}) {
   for (let i = 0; i < tries; i++) {
     const s = await graph(
       `/${containerId}`,
@@ -73,9 +73,33 @@ async function waitContainerReady(containerId, token, tries = 8) {
     if (s.status_code === 'ERROR') {
       throw new Error('Instagram: o container falhou no processamento — ' + (s.status || ''))
     }
-    await new Promise((r) => setTimeout(r, 1500))
+    await new Promise((r) => setTimeout(r, intervalMs))
   }
   throw new Error('Instagram: o container não ficou pronto a tempo (timeout)')
+}
+
+/** Registra uma publicação em `posts` sem derrubar o fluxo se o DB falhar. */
+async function logPost({ published, permalink, mediaUrl, caption, meta, format }) {
+  try {
+    const row = await insertPost({
+      client: String(meta.client || 'post'),
+      ig_media_id: published.id,
+      permalink: permalink || null,
+      media_url: mediaUrl || null,
+      format,
+      layout: meta.layout || null,
+      angle: meta.angle || null,
+      headline: meta.headline || null,
+      caption: caption || null,
+      hashtags: meta.hashtags || null,
+      fields: meta.fields || null,
+      published_at: new Date().toISOString(),
+    })
+    return row?.id ?? null
+  } catch (err) {
+    console.error('Falha ao registrar post no Supabase:', err?.message || err)
+    return null
+  }
 }
 
 /**
@@ -124,28 +148,67 @@ export async function publishImage({ imageDataUrl, caption, meta = {} }) {
 
   // 5) registra no banco — a base de dados do aprendizado.
   //    Não deixa um erro de DB derrubar uma publicação que já foi ao ar.
-  let postId = null
-  try {
-    const row = await insertPost({
-      client,
-      ig_media_id: published.id,
-      permalink: permalink || null,
-      media_url: mediaUrl,
-      format: meta.format || 'feed',
-      layout: meta.layout || null,
-      angle: meta.angle || null,
-      headline: meta.headline || null,
-      caption: caption || null,
-      hashtags: meta.hashtags || null,
-      fields: meta.fields || null,
-      published_at: now.toISOString(),
-    })
-    postId = row?.id ?? null
-  } catch (err) {
-    console.error('Falha ao registrar post no Supabase:', err?.message || err)
-  }
+  const postId = await logPost({
+    published,
+    permalink,
+    mediaUrl,
+    caption,
+    meta,
+    format: meta.format || 'feed',
+  })
 
   return { id: published.id, permalink, mediaUrl, postId }
+}
+
+/**
+ * Publica um vídeo (já hospedado em `videoUrl`) no Story ou nos Reels.
+ * `target` é 'story' ou 'reels'. Retorna { id, permalink, postId }.
+ */
+export async function publishVideo({ videoUrl, caption, target, meta = {} }) {
+  const { userId, token } = igConfig()
+  const mediaType = target === 'reels' ? 'REELS' : 'STORIES'
+
+  // 1) cria o container de vídeo (o Instagram baixa e processa — pode demorar)
+  const params = {
+    media_type: mediaType,
+    video_url: videoUrl,
+    access_token: token,
+  }
+  // Story não usa legenda; Reels sim.
+  if (mediaType === 'REELS' && caption) params.caption = caption
+  const container = await graph(`/${userId}/media`, params)
+  if (!container?.id) throw new Error('Instagram não devolveu id do container')
+
+  // 2) espera o processamento do vídeo (mais longo que imagem)
+  await waitContainerReady(container.id, token, { tries: 24, intervalMs: 2000 })
+
+  // 3) publica
+  const published = await graph(`/${userId}/media_publish`, {
+    creation_id: container.id,
+    access_token: token,
+  })
+  if (!published?.id) throw new Error('Instagram não confirmou a publicação')
+
+  // 4) link (não crítico)
+  let permalink = ''
+  try {
+    const info = await graph(`/${published.id}`, { fields: 'permalink', access_token: token }, 'GET')
+    permalink = info?.permalink || ''
+  } catch {
+    /* segue sem link */
+  }
+
+  // 5) registra no banco
+  const postId = await logPost({
+    published,
+    permalink,
+    mediaUrl: videoUrl,
+    caption: mediaType === 'REELS' ? caption : null,
+    meta,
+    format: target,
+  })
+
+  return { id: published.id, permalink, postId }
 }
 
 /**

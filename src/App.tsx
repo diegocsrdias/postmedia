@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import { CreativeCard } from './components/CreativeCard'
-import { CreativeCanvas } from './components/CreativeCanvas'
 import { CLIENT_LIST, DEFAULT_CLIENT, getClient } from './clients'
 import type { ClientId } from './clients'
 import { ANGLE_LABELS, ANGLE_ORDER } from './data/shared'
-import { generateAds, generateByTheme, generateImage, generateMix, publishToInstagram } from './lib/api'
+import {
+  generateAds,
+  generateByTheme,
+  generateImage,
+  generateMix,
+  publishToInstagram,
+  publishVideoToInstagram,
+  uploadVideo,
+} from './lib/api'
+import type { StoryTarget } from './lib/api'
 import { pickFresh, postTextOf } from './lib/creatives'
-import { captureJpeg, copyText, downloadPng, downloadReels } from './lib/export'
+import { captureJpeg, recordReels } from './lib/export'
 import type { Creative, CreativeFields, Filter, Format } from './types'
 import type { ImageMode } from './lib/api'
 import { FONT, RADIUS, SHADOW, UI, monoLabel, segButton, segGroup } from './ui/theme'
@@ -35,8 +42,8 @@ export default function App() {
 
   const [format, setFormat] = useState<Format>('square')
   const [filter, setFilter] = useState<Filter>('all')
-  const [count, setCount] = useState(3)
-  const [videoCaptionOn, setVideoCaptionOn] = useState(false)
+  // gera sempre 1 criativo por vez
+  const count = 1
   const [theme, setTheme] = useState('')
   const [generating, setGenerating] = useState(false)
   // mensagem exibida no overlay de carregamento (tela cheia)
@@ -46,13 +53,10 @@ export default function App() {
   // índice do card que está sendo postado no Instagram (trava só aquele botão)
   const [postingIdx, setPostingIdx] = useState<number | null>(null)
   const [creatives, setCreatives] = useState<Creative[]>(() =>
-    pickFresh(getClient(getInitialClientId()).bank, 3, 'all', []),
+    pickFresh(getClient(getInitialClientId()).bank, 1, 'all', []),
   )
   const [toast, setToast] = useState('')
   const toastTimer = useRef<number | undefined>(undefined)
-  const recording = useRef(false)
-  // slides do carrossel (12s/20s) — renderizados fora da tela só para captura
-  const [carouselSlides, setCarouselSlides] = useState<Creative[]>([])
 
   const availableAngles = useMemo(() => {
     const angleSet = new Set(client.bank.map((item) => item.angle))
@@ -259,13 +263,6 @@ export default function App() {
       return a
     })
 
-  const editCaption = (idx: number, val: string) =>
-    setCreatives((prev) => {
-      const a = prev.slice()
-      a[idx] = { ...a[idx], caption: val }
-      return a
-    })
-
   const editVcap = (idx: number, val: string) =>
     setCreatives((prev) => {
       const a = prev.slice()
@@ -274,28 +271,17 @@ export default function App() {
     })
 
   // ----- ações -----
-  const copyCaption = async (idx: number) => {
-    const c = creatives[idx]
-    const ok = await copyText(c.caption + '\n\n' + c.hashtags)
-    flash(ok ? 'Legenda copiada!' : 'Não consegui copiar 😕')
-  }
+  /** Dados do criativo guardados no banco (o "DNA" para o aprendizado). */
+  const metaOf = (c: Creative, fmt: 'feed' | 'story') => ({
+    client: client.id,
+    format: fmt,
+    layout: c.layout,
+    angle: c.angle,
+    headline: c.f.headline || c.f.title || c.f.line1 || '',
+    fields: c.f,
+  })
 
-  const doDownload = async (idx: number) => {
-    const node = document.querySelector<HTMLElement>('[data-cap="' + idx + '"]')
-    if (!node) {
-      flash('Aguarde carregar…')
-      return
-    }
-    flash('Gerando PNG…')
-    try {
-      await downloadPng(node, idx, client.id)
-      flash('PNG baixado! 🐷')
-    } catch {
-      flash('Erro ao gerar imagem')
-    }
-  }
-
-  /** Posta o criativo (imagem) direto no feed do Instagram, via backend. */
+  /** Posta o criativo (imagem) no feed do Instagram — sem legenda. */
   const doPublish = async (idx: number) => {
     if (postingIdx !== null) return
     const node = document.querySelector<HTMLElement>('[data-cap="' + idx + '"]')
@@ -303,21 +289,11 @@ export default function App() {
       flash('Aguarde carregar…')
       return
     }
-    const c = creatives[idx]
-    const caption = (c.caption + (c.hashtags ? '\n\n' + c.hashtags : '')).trim()
     setPostingIdx(idx)
     flash('Postando no Instagram…')
     try {
       const jpeg = await captureJpeg(node)
-      await publishToInstagram(jpeg, caption, {
-        client: client.id,
-        format: square ? 'feed' : 'story',
-        layout: c.layout,
-        angle: c.angle,
-        headline: c.f.headline || c.f.title || c.f.line1 || '',
-        hashtags: c.hashtags,
-        fields: c.f,
-      })
+      await publishToInstagram(jpeg, '', metaOf(creatives[idx], 'feed'))
       flash('Publicado no Instagram! 🎉')
     } catch (err) {
       flash('Falhou: ' + String((err as Error)?.message || err))
@@ -327,81 +303,48 @@ export default function App() {
   }
 
   /**
-   * Baixa o vídeo do card.
-   * - 6s: grava só este criativo (nó já na tela).
-   * - 12s/20s: monta um CARROSSEL — gera slides novos com IA (só arte de
-   *   texto/layout, sem foto por IA), renderiza-os num container oculto,
-   *   captura cada um e emenda tudo num vídeo só. 12s→2 slides, 20s→3 slides.
+   * Grava o vídeo animado (~6s) do card e publica no Story e/ou nos Reels.
+   * O vídeo é enviado direto ao bucket (URL assinada) e publicado via backend.
    */
-  const doVideo = async (idx: number, durationMs: number) => {
-    if (recording.current) return
-
-    // ---- vídeo simples de 6s: usa o card já renderizado ----
-    if (durationMs <= 6000) {
-      const node = document.querySelector<HTMLElement>('[data-cap="' + idx + '"]')
-      if (!node) {
-        flash('Aguarde carregar…')
-        return
-      }
-      recording.current = true
-      flash('Gravando vídeo… ~6s')
-      try {
-        await downloadReels(
-          [{ node, vcap: creatives[idx].vcap }],
-          idx,
-          videoCaptionOn,
-          durationMs,
-          client.id,
-        )
-        flash('Vídeo baixado! 🎬')
-      } catch {
-        flash('Erro ao gerar vídeo')
-      } finally {
-        recording.current = false
-      }
+  const doPublishStory = async (idx: number, targets: StoryTarget[]) => {
+    if (postingIdx !== null) return
+    const node = document.querySelector<HTMLElement>('[data-cap="' + idx + '"]')
+    if (!node) {
+      flash('Aguarde carregar…')
       return
     }
-
-    // ---- carrossel (12s/20s): gera slides novos com IA ----
-    const nSlides = durationMs >= 20000 ? 3 : 2
-    if (generating) return
-    recording.current = true
-    setGenerating(true)
-    setLoadingMsg('Criando carrossel de ' + nSlides + ' telas com IA…')
+    const label = targets.length > 1 ? 'Story + Reels' : targets[0] === 'reels' ? 'Reels' : 'Story'
+    setPostingIdx(idx)
+    flash('Gravando e publicando (' + label + ')…')
     try {
-      const existing = creatives
-        .map((c) => c.f.headline || c.f.title || c.f.line1 || '')
-        .filter(Boolean)
-        .join(' | ')
-      let slides = await generateMix(nSlides, existing, client.id)
-      if (slides.length < nSlides) {
-        // completa com o banco offline pra não gravar carrossel curto
-        const fill = pickFresh(client.bank, nSlides - slides.length, 'all', [])
-        slides = slides.concat(fill).slice(0, nSlides)
-      }
-      // renderiza os slides ocultos e espera o React pintar
-      setCarouselSlides(slides)
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
-
-      const nodes: { node: HTMLElement; vcap: string }[] = []
-      for (let s = 0; s < slides.length; s++) {
-        const node = document.querySelector<HTMLElement>(
-          '[data-carousel="' + s + '"] [data-cap]',
+      const { blob, ext } = await recordReels([{ node, vcap: creatives[idx].vcap }], true, 6000)
+      if (ext === 'webm') {
+        throw new Error(
+          'Seu navegador gravou o vídeo em WebM, que o Instagram não aceita. ' +
+            'Use o Chrome/Edge atualizado (que grava em MP4).',
         )
-        if (node) nodes.push({ node, vcap: slides[s].vcap })
       }
-      if (!nodes.length) throw new Error('render')
-
-      setLoadingMsg('Gravando carrossel…')
-      await downloadReels(nodes, idx, videoCaptionOn, durationMs, client.id)
-      flash('Carrossel baixado! 🎬')
+      const path = await uploadVideo(blob, client.id, ext)
+      const { results } = await publishVideoToInstagram(
+        path,
+        targets,
+        '',
+        metaOf(creatives[idx], 'story'),
+      )
+      const failed = results.filter((r) => r.error)
+      if (!failed.length) {
+        flash('Publicado no ' + label + '! 🎉')
+      } else if (failed.length < results.length) {
+        // sucesso parcial (ex.: Reels foi, Story não)
+        const okTarget = results.find((r) => !r.error)?.target
+        flash('Publicado só no ' + (okTarget === 'reels' ? 'Reels' : 'Story') + '. ' + failed[0].error)
+      } else {
+        flash('Falhou: ' + failed[0].error)
+      }
     } catch (err) {
-      flash(aiError(err))
+      flash('Falhou: ' + String((err as Error)?.message || err))
     } finally {
-      setCarouselSlides([])
-      setGenerating(false)
-      setLoadingMsg('')
-      recording.current = false
+      setPostingIdx(null)
     }
   }
 
@@ -449,30 +392,6 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: UI.bg }}>
-      {/* ===== Slides do carrossel (12s/20s) renderizados fora da tela =====
-          Ficam em tamanho nativo 1080×1920 (vídeo vertical) só para o
-          html2canvas capturar; não aparecem para o usuário. */}
-      {carouselSlides.length > 0 && (
-        <div
-          aria-hidden
-          style={{ position: 'fixed', left: -20000, top: 0, opacity: 0, pointerEvents: 'none' }}
-        >
-          {carouselSlides.map((slide, s) => (
-            <div key={slide._key + '-' + s} data-carousel={s} style={{ width: 1080, height: 1920 }}>
-              <CreativeCanvas
-                c={slide}
-                idx={s}
-                square={false}
-                scaleStr="1"
-                innerW={1080}
-                innerH={1920}
-                client={client}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* ===== Top bar ===== */}
       <header
         className="app-header"
@@ -604,7 +523,7 @@ export default function App() {
             ) : (
               <span style={{ fontSize: 19 }}>🎲</span>
             )}{' '}
-            {generating ? 'Criando…' : 'Gerar ' + count + ' criativos com IA'}
+            {generating ? 'Criando…' : 'Gerar criativo com IA'}
           </button>
         </div>
 
@@ -778,114 +697,8 @@ export default function App() {
               <option value="anuncio">📣 Anúncio (propaganda)</option>
             </select>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={monoLabel()}>Quantidade</span>
-            <div style={segGroup}>
-              {[3, 4, 6].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => {
-                    setCount(n)
-                    generateAll(filter, n)
-                  }}
-                  style={segButton(count === n)}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
-        {/* ===== Estratégia de hoje ===== */}
-        <div
-          style={{
-            marginTop: 16,
-            background: UI.dark,
-            borderRadius: 16,
-            padding: '22px 24px',
-            color: UI.darkText,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <span style={{ fontSize: 20 }}>📋</span>
-            <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em' }}>
-              Estratégia de hoje
-            </span>
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))',
-              gap: '18px 26px',
-            }}
-          >
-            <StrategyCol
-              title="1 · Ache o áudio (2 min)"
-              items={[
-                <>
-                  Abra o Reels e procure a <strong>setinha ⬆</strong> (áudio em alta).
-                </>,
-                <>
-                  Toque no som e cheque o nº de vídeos:{' '}
-                  <strong>menos de 50 mil = entre agora.</strong>
-                </>,
-                <>Salve 3–5 áudios favoritos e reuse a semana toda.</>,
-              ]}
-            />
-            <StrategyCol
-              title="2 · Monte o vídeo"
-              items={[
-                <>
-                  Gancho nos <strong>2 primeiros segundos</strong> — ou o vídeo morre.
-                </>,
-                <>Corte na batida do som (retenção +25–40%).</>,
-                <>
-                  Baixe o vídeo, suba e <strong>troque o áudio pelo em alta</strong> na plataforma.
-                </>,
-              ]}
-            />
-            <StrategyCol
-              title="3 · Faça viralizar"
-              items={[
-                <>
-                  Poste <strong>na mesma cadência toda semana</strong> (consistência &gt; volume).
-                </>,
-                <>Responda todo comentário nas primeiras 2h.</>,
-                <>Reposte nos Stories pra reativar o ciclo de 24–72h.</>,
-              ]}
-            />
-          </div>
-          <div
-            style={{
-              marginTop: 18,
-              paddingTop: 16,
-              borderTop: '1px solid ' + UI.darkBorder,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              flexWrap: 'wrap',
-            }}
-          >
-            <span
-              style={monoLabel('dark')}
-            >
-              Legenda no vídeo
-            </span>
-            <div style={{ ...segGroup, background: UI.darkAlt }}>
-              <button onClick={() => setVideoCaptionOn(true)} style={segButton(videoCaptionOn)}>
-                Ligada
-              </button>
-              <button onClick={() => setVideoCaptionOn(false)} style={segButton(!videoCaptionOn)}>
-                Desligada
-              </button>
-            </div>
-            <span style={{ fontSize: 12, color: UI.darkTextMuted }}>
-              Grava o texto principal na tela do Reels, palavra por palavra — quem assiste não
-              precisa abrir a descrição.
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* ===== Grid ===== */}
@@ -897,7 +710,6 @@ export default function App() {
               c={c}
               idx={i}
               square={square}
-              isStory={!square}
               frameW={frameW}
               frameH={frameH}
               scaleStr={scaleStr}
@@ -905,13 +717,10 @@ export default function App() {
               innerH={innerH}
               client={client}
               onEditField={editField}
-              onEditCaption={editCaption}
               onEditVcap={editVcap}
               onRegen={regenerateOne}
-              onCopy={(cardIdx) => void copyCaption(cardIdx)}
-              onDownload={(cardIdx) => void doDownload(cardIdx)}
               onPublish={(cardIdx) => void doPublish(cardIdx)}
-              onVideo={(cardIdx, durationMs) => void doVideo(cardIdx, durationMs)}
+              onPublishStory={(cardIdx, targets) => void doPublishStory(cardIdx, targets)}
               onGenImage={(cardIdx, mode) => void genImage(cardIdx, mode)}
               onClearImage={clearImage}
               busy={generating}
@@ -964,34 +773,3 @@ export default function App() {
   )
 }
 
-function StrategyCol({ title, items }: { title: string; items: ReactNode[] }) {
-  return (
-    <div>
-      <div
-        style={{
-          fontFamily: FONT.mono,
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: UI.darkTextMuted2,
-          marginBottom: 8,
-        }}
-      >
-        {title}
-      </div>
-      <ul
-        style={{
-          margin: 0,
-          paddingLeft: 18,
-          fontSize: 13,
-          lineHeight: 1.55,
-          color: UI.darkTextMuted2,
-        }}
-      >
-        {items.map((it, i) => (
-          <li key={i}>{it}</li>
-        ))}
-      </ul>
-    </div>
-  )
-}

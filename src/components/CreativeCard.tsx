@@ -1,16 +1,15 @@
-import type { CSSProperties } from 'react'
 import type { ClientConfig } from '../clients/types'
 import type { Creative, CreativeFields } from '../types'
-import type { ImageMode } from '../lib/api'
-import { ANGLE_LABELS, EDIT_FIELDS, STRAT } from '../data/shared'
-import { RADIUS, SHADOW, UI, button, fieldLabel, pill, textarea } from '../ui/theme'
+import type { ImageMode, StoryTarget } from '../lib/api'
+import { ANGLE_LABELS, EDIT_FIELDS } from '../data/shared'
+import { RADIUS, SHADOW, UI, button, fieldLabel, textarea } from '../ui/theme'
 import { CreativeCanvas } from './CreativeCanvas'
+import type { CSSProperties } from 'react'
 
 interface Props {
   c: Creative
   idx: number
   square: boolean
-  isStory: boolean
   frameW: number
   frameH: number
   scaleStr: string
@@ -18,28 +17,30 @@ interface Props {
   innerH: number
   client: ClientConfig
   onEditField: (idx: number, key: keyof CreativeFields, val: string) => void
-  onEditCaption: (idx: number, val: string) => void
   onEditVcap: (idx: number, val: string) => void
   onRegen: (idx: number) => void
-  onCopy: (idx: number) => void
-  onDownload: (idx: number) => void
+  /** Publica a imagem no feed (formato 1:1). */
   onPublish: (idx: number) => void
-  onVideo: (idx: number, durationMs: number) => void
+  /** Publica o vídeo vertical no Story e/ou nos Reels (formato 9:16). */
+  onPublishStory: (idx: number, targets: StoryTarget[]) => void
   onGenImage: (idx: number, mode: ImageMode) => void
   onClearImage: (idx: number) => void
   busy: boolean
   /** true quando a imagem DESTE card está sendo gerada pela IA */
   busyImage?: boolean
-  /** true quando ESTE card está sendo postado no Instagram */
+  /** true quando ESTE card está sendo publicado no Instagram */
   posting?: boolean
 }
 
+// Cor da marca do Instagram, usada nos botões de publicar.
+const IG_GRADIENT = 'linear-gradient(90deg,#833AB4 0%,#E1306C 50%,#F77737 100%)'
+
 export function CreativeCard(props: Props) {
-  const { c, idx, square, isStory, frameW, frameH, scaleStr, innerW, innerH, client } = props
-  const strat = STRAT[c.layout] ?? ({} as (typeof STRAT)[keyof typeof STRAT])
+  const { c, idx, square, frameW, frameH, scaleStr, innerW, innerH, client } = props
   const editFields = EDIT_FIELDS[c.layout] ?? []
   // Marcas editoriais (saúde) não geram imagem de propaganda — ver ClientVoice.
   const editorial = client.voice === 'editorial'
+  const posting = !!props.posting
 
   // Botão flutuante sobre o preview (gerar/remover fundo por IA).
   const floatBtn: CSSProperties = {
@@ -59,6 +60,22 @@ export function CreativeCard(props: Props) {
     opacity: props.busy ? 0.7 : 1,
     whiteSpace: 'nowrap',
   }
+
+  // Botão de publicar (gradiente do Instagram), reaproveitado no feed e no story.
+  const igBtn = (extra: CSSProperties = {}): CSSProperties => ({
+    ...button('primary'),
+    background: posting ? UI.inkMuted2 : IG_GRADIENT,
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    cursor: posting ? 'default' : 'pointer',
+    opacity: posting ? 0.85 : 1,
+    ...extra,
+  })
+
+  const spinner = <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
 
   return (
     <div
@@ -175,10 +192,6 @@ export function CreativeCard(props: Props) {
           >
             {ANGLE_LABELS[c.angle] ?? c.angle}
           </span>
-          <span style={{ fontSize: 12, color: UI.inkMuted2 }}>·</span>
-          <span style={{ fontSize: 12, color: UI.inkMuted2, fontWeight: 600 }}>Facebook</span>
-          <span style={{ fontSize: 12, color: UI.inkMuted2, fontWeight: 600 }}>Instagram</span>
-          <span style={{ fontSize: 12, color: UI.inkMuted2, fontWeight: 600 }}>TikTok</span>
           <div style={{ flex: 1 }} />
           <button
             onClick={() => props.onRegen(idx)}
@@ -198,28 +211,6 @@ export function CreativeCard(props: Props) {
           </button>
         </div>
 
-        {/* strategy strip */}
-        <div
-          style={{
-            background: UI.surfaceAlt,
-            borderRadius: 10,
-            padding: '10px 12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 7,
-          }}
-        >
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            <span style={pill}>🎵 {strat.mood}</span>
-            <span style={pill}>{strat.bpm}</span>
-            <span style={pill}>🎯 {strat.goal}</span>
-          </div>
-          <div style={{ fontSize: 12, color: UI.inkMuted, lineHeight: 1.4 }}>
-            <strong style={{ color: UI.ink }}>Gancho 2s:</strong> {strat.hook} ·{' '}
-            <strong style={{ color: UI.ink }}>Melhor em:</strong> {strat.plat}
-          </div>
-        </div>
-
         {/* editable fields */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {editFields.map(([key, label]) => (
@@ -235,81 +226,22 @@ export function CreativeCard(props: Props) {
           ))}
         </div>
 
-        {/* caption */}
-        <div
-          style={{
-            borderTop: '1px solid ' + UI.border,
-            paddingTop: 12,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-          }}
-        >
-          <span style={fieldLabel}>Legenda</span>
-          <textarea
-            value={c.caption}
-            onChange={(e) => props.onEditCaption(idx, e.target.value)}
-            rows={4}
-            style={{ ...textarea, lineHeight: 1.45 }}
-          />
-          <div
-            style={{ fontSize: 12, color: UI.inkMuted, lineHeight: 1.4, wordBreak: 'break-word' }}
+        {/* ===== Publicar ===== */}
+        {square ? (
+          // Feed 1:1 — publica a imagem.
+          <button
+            onClick={() => props.onPublish(idx)}
+            disabled={posting}
+            title="Publicar esta imagem no feed do Instagram conectado"
+            style={igBtn({ width: '100%' })}
           >
-            {c.hashtags}
-          </div>
-        </div>
-
-        <div className="stack-sm" style={{ display: 'flex', gap: 10, marginTop: 2 }}>
-          <button onClick={() => props.onCopy(idx)} style={{ ...button('primary'), flex: 1 }}>
-            📋 Copiar legenda
+            {posting ? <>{spinner} Postando…</> : <>📤 Postar no Instagram</>}
           </button>
-          <button onClick={() => props.onDownload(idx)} style={{ ...button('ghost'), flex: 1 }}>
-            ⬇ Baixar PNG
-          </button>
-        </div>
-
-        {/* postar direto no Instagram (feed). O backend hospeda a imagem e publica. */}
-        <button
-          onClick={() => props.onPublish(idx)}
-          disabled={props.posting}
-          title="Publicar esta imagem no feed do Instagram conectado"
-          style={{
-            ...button('primary'),
-            width: '100%',
-            background: props.posting
-              ? UI.inkMuted2
-              : 'linear-gradient(90deg,#833AB4 0%,#E1306C 50%,#F77737 100%)',
-            border: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            cursor: props.posting ? 'default' : 'pointer',
-            opacity: props.posting ? 0.85 : 1,
-          }}
-        >
-          {props.posting ? (
-            <>
-              <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-              Postando…
-            </>
-          ) : (
-            <>📤 Postar no Instagram</>
-          )}
-        </button>
-
-        {isStory && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              borderTop: '1px dashed ' + UI.border,
-              paddingTop: 12,
-            }}
-          >
+        ) : (
+          // Story 9:16 — grava o vídeo animado e publica no Story e/ou Reels.
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={fieldLabel}>🎬 Texto na tela do vídeo (legenda animada)</span>
+              <span style={fieldLabel}>🎬 Texto na tela do vídeo</span>
               <textarea
                 value={c.vcap}
                 onChange={(e) => props.onEditVcap(idx, e.target.value)}
@@ -317,33 +249,35 @@ export function CreativeCard(props: Props) {
                 style={textarea}
               />
             </label>
-            <span style={fieldLabel}>🎬 Baixar vídeo</span>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => props.onVideo(idx, 6000)}
-                disabled={props.busy}
-                title="Reels de ~6s com este criativo"
-                style={{ ...button('primary'), flex: 1, border: '2px solid ' + UI.darkBorder }}
-              >
-                6s
+            {posting ? (
+              <button disabled style={igBtn({ width: '100%' })}>
+                {spinner} Publicando vídeo… ~30s
               </button>
-              <button
-                onClick={() => props.onVideo(idx, 12000)}
-                disabled={props.busy}
-                title="Carrossel de ~12s: a IA cria 2 telas novas e emenda num vídeo só"
-                style={{ ...button('ghost'), flex: 1 }}
-              >
-                12s <span style={{ fontSize: 11, opacity: 0.7 }}>carrossel</span>
-              </button>
-              <button
-                onClick={() => props.onVideo(idx, 20000)}
-                disabled={props.busy}
-                title="Carrossel de ~20s: a IA cria 3 telas novas e emenda num vídeo só"
-                style={{ ...button('ghost'), flex: 1 }}
-              >
-                20s <span style={{ fontSize: 11, opacity: 0.7 }}>carrossel</span>
-              </button>
-            </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => props.onPublishStory(idx, ['story'])}
+                  title="Publicar o vídeo no Story"
+                  style={igBtn({ flex: 1 })}
+                >
+                  📱 Story
+                </button>
+                <button
+                  onClick={() => props.onPublishStory(idx, ['reels'])}
+                  title="Publicar o vídeo nos Reels"
+                  style={igBtn({ flex: 1 })}
+                >
+                  🎬 Reels
+                </button>
+                <button
+                  onClick={() => props.onPublishStory(idx, ['story', 'reels'])}
+                  title="Publicar no Story e nos Reels"
+                  style={igBtn({ flex: 1 })}
+                >
+                  ✨ Ambos
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
