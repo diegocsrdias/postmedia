@@ -315,6 +315,35 @@ export default function App() {
   }
 
   /**
+   * Grava o vídeo animado (~6s) e baixa no computador — para você postar
+   * manualmente no app e escolher um áudio em alta (que a API não permite).
+   */
+  const doDownloadVideo = async (idx: number) => {
+    if (postingIdx !== null) return
+    const node = document.querySelector<HTMLElement>('[data-cap="' + idx + '"]')
+    if (!node) {
+      flash('Aguarde carregar…')
+      return
+    }
+    setPostingIdx(idx)
+    flash('Gravando vídeo…')
+    try {
+      const { blob, ext } = await recordReels([{ node, vcap: '' }], false, 6000)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = client.id + '-video-' + (idx + 1) + '.' + ext
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 4000)
+      flash('Vídeo baixado! Poste no app e escolha o áudio 🎵')
+    } catch (err) {
+      flash('Falhou: ' + String((err as Error)?.message || err))
+    } finally {
+      setPostingIdx(null)
+    }
+  }
+
+  /**
    * Grava o vídeo animado (~6s) do card e publica no Story e/ou nos Reels.
    * O vídeo é enviado direto ao bucket (URL assinada) e publicado via backend.
    */
@@ -329,6 +358,8 @@ export default function App() {
     setPostingIdx(idx)
     flash('Gravando e publicando (' + label + ')…')
     try {
+      // capa nítida do Reels: um frame estático do card (antes de gravar)
+      const cover = targets.includes('reels') ? await captureJpeg(node) : undefined
       // sem texto queimado no vídeo (tudo sem legenda) — Ken Burns do card puro
       const { blob, ext } = await recordReels([{ node, vcap: '' }], false, 6000)
       if (ext === 'webm') {
@@ -343,6 +374,7 @@ export default function App() {
         targets,
         fullCaption(creatives[idx]),
         metaOf(creatives[idx], 'story'),
+        cover,
       )
       const failed = results.filter((r) => r.error)
       if (!failed.length) {
@@ -735,6 +767,7 @@ export default function App() {
               onRegen={regenerateOne}
               onPublish={(cardIdx) => void doPublish(cardIdx)}
               onPublishStory={(cardIdx, targets) => void doPublishStory(cardIdx, targets)}
+              onDownloadVideo={(cardIdx) => void doDownloadVideo(cardIdx)}
               onGenImage={(cardIdx, mode) => void genImage(cardIdx, mode)}
               onClearImage={clearImage}
               busy={generating}

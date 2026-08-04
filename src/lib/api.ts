@@ -191,12 +191,14 @@ export async function publishVideoToInstagram(
   targets: StoryTarget[],
   caption: string,
   meta: PublishMeta,
+  coverBase64?: string,
 ): Promise<{ results: VideoPublishResult[] }> {
   return post<{ results: VideoPublishResult[] }>('ig-publish-video', {
     path,
     targets,
     caption,
     meta,
+    coverBase64,
   })
 }
 

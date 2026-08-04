@@ -187,7 +187,7 @@ export async function publishImage({ imageDataUrl, caption, meta = {} }) {
  * Publica um vídeo (já hospedado em `videoUrl`) no Story ou nos Reels.
  * `target` é 'story' ou 'reels'. Retorna { id, permalink, postId }.
  */
-export async function publishVideo({ videoUrl, caption, target, meta = {} }) {
+export async function publishVideo({ videoUrl, caption, target, coverUrl, meta = {} }) {
   const { userId, token } = igConfig()
   const mediaType = target === 'reels' ? 'REELS' : 'STORIES'
 
@@ -197,8 +197,14 @@ export async function publishVideo({ videoUrl, caption, target, meta = {} }) {
     video_url: videoUrl,
     access_token: token,
   }
-  // Story não usa legenda; Reels sim.
-  if (mediaType === 'REELS' && caption) params.caption = caption
+  if (mediaType === 'REELS') {
+    // Story não usa legenda; Reels sim.
+    if (caption) params.caption = caption
+    // o Reel também aparece no feed (mais alcance)
+    params.share_to_feed = 'true'
+    // capa nítida (thumbnail) a partir de um frame do card
+    if (coverUrl) params.cover_url = coverUrl
+  }
   const container = await graph(`/${userId}/media`, params)
   if (!container?.id) throw new Error('Instagram não devolveu id do container')
 

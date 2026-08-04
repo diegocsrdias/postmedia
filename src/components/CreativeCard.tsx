@@ -24,6 +24,8 @@ interface Props {
   onPublish: (idx: number) => void
   /** Publica o vídeo vertical no Story e/ou nos Reels (formato 9:16). */
   onPublishStory: (idx: number, targets: StoryTarget[]) => void
+  /** Baixa o vídeo para postar manualmente no app (com áudio em alta). */
+  onDownloadVideo: (idx: number) => void
   onGenImage: (idx: number, mode: ImageMode) => void
   onClearImage: (idx: number) => void
   busy: boolean
@@ -300,6 +302,15 @@ export function CreativeCard(props: Props) {
                   ✨ Ambos
                 </button>
               </div>
+            )}
+            {!posting && (
+              <button
+                onClick={() => props.onDownloadVideo(idx)}
+                title="Baixar o vídeo para postar no app e escolher um áudio em alta (a API não permite áudio da biblioteca)"
+                style={{ ...button('ghost'), width: '100%', fontSize: 13 }}
+              >
+                ⬇ Baixar vídeo (p/ áudio em alta no app)
+              </button>
             )}
           </div>
         )}
