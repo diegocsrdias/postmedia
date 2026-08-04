@@ -50,10 +50,32 @@ export async function graph(path, params, method = 'POST') {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const e = data?.error
-    const msg = e ? `${e.message}${e.error_user_msg ? ' — ' + e.error_user_msg : ''}` : `HTTP ${res.status}`
+    const code = e ? ` (code ${e.code}${e.error_subcode ? '/' + e.error_subcode : ''})` : ''
+    const detail = e?.error_user_msg ? ' — ' + e.error_user_msg : ''
+    const msg = e ? `${e.message}${code}${detail}` : `HTTP ${res.status}`
     throw new Error('Instagram: ' + msg)
   }
   return data
+}
+
+/**
+ * Espera o container de mídia terminar de processar antes de publicar.
+ * Para imagem costuma ser instantâneo, mas publicar cedo demais devolve 400.
+ */
+async function waitContainerReady(containerId, token, tries = 8) {
+  for (let i = 0; i < tries; i++) {
+    const s = await graph(
+      `/${containerId}`,
+      { fields: 'status_code,status', access_token: token },
+      'GET',
+    )
+    if (s.status_code === 'FINISHED') return
+    if (s.status_code === 'ERROR') {
+      throw new Error('Instagram: o container falhou no processamento — ' + (s.status || ''))
+    }
+    await new Promise((r) => setTimeout(r, 1500))
+  }
+  throw new Error('Instagram: o container não ficou pronto a tempo (timeout)')
 }
 
 /**
@@ -83,7 +105,8 @@ export async function publishImage({ imageDataUrl, caption, meta = {} }) {
   })
   if (!container?.id) throw new Error('Instagram não devolveu id do container')
 
-  // 3) publica o container
+  // 3) espera o container ficar pronto e então publica
+  await waitContainerReady(container.id, token)
   const published = await graph(`/${userId}/media_publish`, {
     creation_id: container.id,
     access_token: token,
