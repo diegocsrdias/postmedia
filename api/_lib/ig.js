@@ -78,6 +78,33 @@ async function waitContainerReady(containerId, token, { tries = 8, intervalMs = 
   throw new Error('Instagram: o container não ficou pronto a tempo (timeout)')
 }
 
+/**
+ * Publica um container, repetindo em falhas transitórias. Mesmo com o container
+ * FINISHED, o Instagram às vezes devolve 400 no media_publish por consistência
+ * eventual (ex.: "Media ID is not available"), e um retry logo resolve. Erros
+ * claramente permanentes (permissão/elegibilidade) estouram na hora.
+ */
+async function mediaPublish(userId, creationId, token, tries = 4) {
+  let lastErr
+  for (let i = 0; i < tries; i++) {
+    try {
+      const r = await graph(`/${userId}/media_publish`, {
+        creation_id: creationId,
+        access_token: token,
+      })
+      if (r?.id) return r
+      lastErr = new Error('Instagram não confirmou a publicação')
+    } catch (err) {
+      lastErr = err
+      const m = String(err?.message || '')
+      // permissão/elegibilidade/limite não melhoram com retry — falha logo
+      if (/permiss|not eligible|content_publish|limit/i.test(m)) throw err
+    }
+    if (i < tries - 1) await new Promise((r) => setTimeout(r, 2500))
+  }
+  throw lastErr
+}
+
 /** Registra uma publicação em `posts` sem derrubar o fluxo se o DB falhar. */
 async function logPost({ published, permalink, mediaUrl, caption, meta, format }) {
   try {
@@ -129,13 +156,9 @@ export async function publishImage({ imageDataUrl, caption, meta = {} }) {
   })
   if (!container?.id) throw new Error('Instagram não devolveu id do container')
 
-  // 3) espera o container ficar pronto e então publica
+  // 3) espera o container ficar pronto e então publica (com retry)
   await waitContainerReady(container.id, token)
-  const published = await graph(`/${userId}/media_publish`, {
-    creation_id: container.id,
-    access_token: token,
-  })
-  if (!published?.id) throw new Error('Instagram não confirmou a publicação')
+  const published = await mediaPublish(userId, container.id, token)
 
   // 4) tenta pegar o link do post (não crítico)
   let permalink = ''
@@ -182,12 +205,8 @@ export async function publishVideo({ videoUrl, caption, target, meta = {} }) {
   // 2) espera o processamento do vídeo (mais longo que imagem)
   await waitContainerReady(container.id, token, { tries: 24, intervalMs: 2000 })
 
-  // 3) publica
-  const published = await graph(`/${userId}/media_publish`, {
-    creation_id: container.id,
-    access_token: token,
-  })
-  if (!published?.id) throw new Error('Instagram não confirmou a publicação')
+  // 3) publica (com retry para o 400 transitório)
+  const published = await mediaPublish(userId, container.id, token)
 
   // 4) link (não crítico)
   let permalink = ''
