@@ -263,7 +263,24 @@ export default function App() {
       return a
     })
 
+  const editCaption = (idx: number, val: string) =>
+    setCreatives((prev) => {
+      const a = prev.slice()
+      a[idx] = { ...a[idx], caption: val }
+      return a
+    })
+
+  const editHashtags = (idx: number, val: string) =>
+    setCreatives((prev) => {
+      const a = prev.slice()
+      a[idx] = { ...a[idx], hashtags: val }
+      return a
+    })
+
   // ----- ações -----
+  /** Legenda completa que vai na descrição do post: texto + hashtags. */
+  const fullCaption = (c: Creative) => (c.caption + (c.hashtags ? '\n\n' + c.hashtags : '')).trim()
+
   /** Dados do criativo guardados no banco (o "DNA" para o aprendizado). */
   const metaOf = (c: Creative, fmt: 'feed' | 'story') => ({
     client: client.id,
@@ -271,6 +288,7 @@ export default function App() {
     layout: c.layout,
     angle: c.angle,
     headline: c.f.headline || c.f.title || c.f.line1 || '',
+    hashtags: c.hashtags,
     fields: c.f,
   })
 
@@ -285,8 +303,9 @@ export default function App() {
     setPostingIdx(idx)
     flash('Postando no Instagram…')
     try {
+      const c = creatives[idx]
       const jpeg = await captureJpeg(node)
-      await publishToInstagram(jpeg, '', metaOf(creatives[idx], 'feed'))
+      await publishToInstagram(jpeg, fullCaption(c), metaOf(c, 'feed'))
       flash('Publicado no Instagram! 🎉')
     } catch (err) {
       flash('Falhou: ' + String((err as Error)?.message || err))
@@ -322,7 +341,7 @@ export default function App() {
       const { results } = await publishVideoToInstagram(
         path,
         targets,
-        '',
+        fullCaption(creatives[idx]),
         metaOf(creatives[idx], 'story'),
       )
       const failed = results.filter((r) => r.error)
@@ -711,6 +730,8 @@ export default function App() {
               innerH={innerH}
               client={client}
               onEditField={editField}
+              onEditCaption={editCaption}
+              onEditHashtags={editHashtags}
               onRegen={regenerateOne}
               onPublish={(cardIdx) => void doPublish(cardIdx)}
               onPublishStory={(cardIdx, targets) => void doPublishStory(cardIdx, targets)}

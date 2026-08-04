@@ -17,6 +17,8 @@ interface Props {
   innerH: number
   client: ClientConfig
   onEditField: (idx: number, key: keyof CreativeFields, val: string) => void
+  onEditCaption: (idx: number, val: string) => void
+  onEditHashtags: (idx: number, val: string) => void
   onRegen: (idx: number) => void
   /** Publica a imagem no feed (formato 1:1). */
   onPublish: (idx: number) => void
@@ -223,6 +225,37 @@ export function CreativeCard(props: Props) {
               />
             </label>
           ))}
+        </div>
+
+        {/* legenda + hashtags — vão na descrição do post (feed e Reels).
+            Story não tem descrição no Instagram, então lá são ignoradas. */}
+        <div
+          style={{
+            borderTop: '1px solid ' + UI.border,
+            paddingTop: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+          }}
+        >
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={fieldLabel}>Legenda {!square && <span style={{ opacity: 0.6 }}>(feed/Reels)</span>}</span>
+            <textarea
+              value={c.caption}
+              onChange={(e) => props.onEditCaption(idx, e.target.value)}
+              rows={4}
+              style={{ ...textarea, lineHeight: 1.45 }}
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={fieldLabel}># Hashtags</span>
+            <textarea
+              value={c.hashtags}
+              onChange={(e) => props.onEditHashtags(idx, e.target.value)}
+              rows={2}
+              style={{ ...textarea, color: UI.inkMuted }}
+            />
+          </label>
         </div>
 
         {/* ===== Publicar ===== */}
