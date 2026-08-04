@@ -23,12 +23,15 @@ interface Props {
   onRegen: (idx: number) => void
   onCopy: (idx: number) => void
   onDownload: (idx: number) => void
+  onPublish: (idx: number) => void
   onVideo: (idx: number, durationMs: number) => void
   onGenImage: (idx: number, mode: ImageMode) => void
   onClearImage: (idx: number) => void
   busy: boolean
   /** true quando a imagem DESTE card está sendo gerada pela IA */
   busyImage?: boolean
+  /** true quando ESTE card está sendo postado no Instagram */
+  posting?: boolean
 }
 
 export function CreativeCard(props: Props) {
@@ -264,6 +267,36 @@ export function CreativeCard(props: Props) {
             ⬇ Baixar PNG
           </button>
         </div>
+
+        {/* postar direto no Instagram (feed). O backend hospeda a imagem e publica. */}
+        <button
+          onClick={() => props.onPublish(idx)}
+          disabled={props.posting}
+          title="Publicar esta imagem no feed do Instagram conectado"
+          style={{
+            ...button('primary'),
+            width: '100%',
+            background: props.posting
+              ? UI.inkMuted2
+              : 'linear-gradient(90deg,#833AB4 0%,#E1306C 50%,#F77737 100%)',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            cursor: props.posting ? 'default' : 'pointer',
+            opacity: props.posting ? 0.85 : 1,
+          }}
+        >
+          {props.posting ? (
+            <>
+              <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+              Postando…
+            </>
+          ) : (
+            <>📤 Postar no Instagram</>
+          )}
+        </button>
 
         {isStory && (
           <div

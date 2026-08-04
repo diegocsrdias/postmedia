@@ -5,9 +5,9 @@ import { CreativeCanvas } from './components/CreativeCanvas'
 import { CLIENT_LIST, DEFAULT_CLIENT, getClient } from './clients'
 import type { ClientId } from './clients'
 import { ANGLE_LABELS, ANGLE_ORDER } from './data/shared'
-import { generateAds, generateByTheme, generateImage, generateMix } from './lib/api'
+import { generateAds, generateByTheme, generateImage, generateMix, publishToInstagram } from './lib/api'
 import { pickFresh, postTextOf } from './lib/creatives'
-import { copyText, downloadPng, downloadReels } from './lib/export'
+import { captureJpeg, copyText, downloadPng, downloadReels } from './lib/export'
 import type { Creative, CreativeFields, Filter, Format } from './types'
 import type { ImageMode } from './lib/api'
 import { FONT, RADIUS, SHADOW, UI, monoLabel, segButton, segGroup } from './ui/theme'
@@ -43,6 +43,8 @@ export default function App() {
   const [loadingMsg, setLoadingMsg] = useState('')
   // índice do card cuja imagem está sendo gerada (overlay só naquele card)
   const [busyCardIdx, setBusyCardIdx] = useState<number | null>(null)
+  // índice do card que está sendo postado no Instagram (trava só aquele botão)
+  const [postingIdx, setPostingIdx] = useState<number | null>(null)
   const [creatives, setCreatives] = useState<Creative[]>(() =>
     pickFresh(getClient(getInitialClientId()).bank, 3, 'all', []),
   )
@@ -290,6 +292,37 @@ export default function App() {
       flash('PNG baixado! 🐷')
     } catch {
       flash('Erro ao gerar imagem')
+    }
+  }
+
+  /** Posta o criativo (imagem) direto no feed do Instagram, via backend. */
+  const doPublish = async (idx: number) => {
+    if (postingIdx !== null) return
+    const node = document.querySelector<HTMLElement>('[data-cap="' + idx + '"]')
+    if (!node) {
+      flash('Aguarde carregar…')
+      return
+    }
+    const c = creatives[idx]
+    const caption = (c.caption + (c.hashtags ? '\n\n' + c.hashtags : '')).trim()
+    setPostingIdx(idx)
+    flash('Postando no Instagram…')
+    try {
+      const jpeg = await captureJpeg(node)
+      await publishToInstagram(jpeg, caption, {
+        client: client.id,
+        format: square ? 'feed' : 'story',
+        layout: c.layout,
+        angle: c.angle,
+        headline: c.f.headline || c.f.title || c.f.line1 || '',
+        hashtags: c.hashtags,
+        fields: c.f,
+      })
+      flash('Publicado no Instagram! 🎉')
+    } catch (err) {
+      flash('Falhou: ' + String((err as Error)?.message || err))
+    } finally {
+      setPostingIdx(null)
     }
   }
 
@@ -877,11 +910,13 @@ export default function App() {
               onRegen={regenerateOne}
               onCopy={(cardIdx) => void copyCaption(cardIdx)}
               onDownload={(cardIdx) => void doDownload(cardIdx)}
+              onPublish={(cardIdx) => void doPublish(cardIdx)}
               onVideo={(cardIdx, durationMs) => void doVideo(cardIdx, durationMs)}
               onGenImage={(cardIdx, mode) => void genImage(cardIdx, mode)}
               onClearImage={clearImage}
               busy={generating}
               busyImage={busyCardIdx === i}
+              posting={postingIdx === i}
             />
           ))}
         </div>

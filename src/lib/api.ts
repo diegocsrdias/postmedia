@@ -5,7 +5,7 @@
  * Base configurável via VITE_API_BASE (padrão: mesma origem, '/api').
  */
 
-import type { Angle, Creative, Format } from '../types'
+import type { Angle, Creative, CreativeFields, Format } from '../types'
 import { EDIT_FIELDS } from '../data/shared'
 import { deriveVcap } from './creatives'
 
@@ -117,6 +117,35 @@ export async function generateImage(
     format,
     clientId,
     mode,
+  })
+}
+
+/** Dados estruturados do criativo, guardados no banco para o aprendizado. */
+export interface PublishMeta {
+  client: string
+  format?: 'feed' | 'story'
+  layout?: string
+  angle?: string
+  headline?: string
+  hashtags?: string
+  fields?: CreativeFields
+}
+
+/**
+ * Publica um criativo (imagem) direto no feed do Instagram, via backend.
+ * `imageDataUrl` é o JPEG capturado do card (ver captureJpeg em lib/export).
+ * `meta` são os dados do criativo, registrados em `posts` para cruzar com o
+ * desempenho depois. Retorna o id do post e, quando disponível, o link.
+ */
+export async function publishToInstagram(
+  imageDataUrl: string,
+  caption: string,
+  meta: PublishMeta,
+): Promise<{ id: string; permalink?: string; postId?: string }> {
+  return post<{ id: string; permalink?: string; postId?: string }>('ig-publish', {
+    imageDataUrl,
+    caption,
+    meta,
   })
 }
 
