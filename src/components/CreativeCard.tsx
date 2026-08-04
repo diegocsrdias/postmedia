@@ -17,7 +17,6 @@ interface Props {
   innerH: number
   client: ClientConfig
   onEditField: (idx: number, key: keyof CreativeFields, val: string) => void
-  onEditVcap: (idx: number, val: string) => void
   onRegen: (idx: number) => void
   /** Publica a imagem no feed (formato 1:1). */
   onPublish: (idx: number) => void
@@ -240,15 +239,6 @@ export function CreativeCard(props: Props) {
         ) : (
           // Story 9:16 — grava o vídeo animado e publica no Story e/ou Reels.
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={fieldLabel}>🎬 Texto na tela do vídeo</span>
-              <textarea
-                value={c.vcap}
-                onChange={(e) => props.onEditVcap(idx, e.target.value)}
-                rows={2}
-                style={textarea}
-              />
-            </label>
             {posting ? (
               <button disabled style={igBtn({ width: '100%' })}>
                 {spinner} Publicando vídeo… ~30s

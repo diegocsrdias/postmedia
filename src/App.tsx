@@ -263,13 +263,6 @@ export default function App() {
       return a
     })
 
-  const editVcap = (idx: number, val: string) =>
-    setCreatives((prev) => {
-      const a = prev.slice()
-      a[idx] = { ...a[idx], vcap: val }
-      return a
-    })
-
   // ----- ações -----
   /** Dados do criativo guardados no banco (o "DNA" para o aprendizado). */
   const metaOf = (c: Creative, fmt: 'feed' | 'story') => ({
@@ -317,7 +310,8 @@ export default function App() {
     setPostingIdx(idx)
     flash('Gravando e publicando (' + label + ')…')
     try {
-      const { blob, ext } = await recordReels([{ node, vcap: creatives[idx].vcap }], true, 6000)
+      // sem texto queimado no vídeo (tudo sem legenda) — Ken Burns do card puro
+      const { blob, ext } = await recordReels([{ node, vcap: '' }], false, 6000)
       if (ext === 'webm') {
         throw new Error(
           'Seu navegador gravou o vídeo em WebM, que o Instagram não aceita. ' +
@@ -717,7 +711,6 @@ export default function App() {
               innerH={innerH}
               client={client}
               onEditField={editField}
-              onEditVcap={editVcap}
               onRegen={regenerateOne}
               onPublish={(cardIdx) => void doPublish(cardIdx)}
               onPublishStory={(cardIdx, targets) => void doPublishStory(cardIdx, targets)}
