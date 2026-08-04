@@ -1,29 +1,46 @@
 import html2canvas from 'html2canvas'
 
+/** Renderiza o nó em canvas nativo (reseta o transform de preview). */
+async function snapshot(node: HTMLElement): Promise<HTMLCanvasElement> {
+  const prev = node.style.transform
+  node.style.transform = 'none'
+  try {
+    return await html2canvas(node, {
+      scale: 2,
+      backgroundColor: null,
+      useCORS: true,
+      logging: false,
+    })
+  } finally {
+    node.style.transform = prev
+  }
+}
+
 /** Baixa o nó do criativo como PNG (2x). */
 export async function downloadPng(
   node: HTMLElement,
   idx: number,
   clientSlug: string = 'dindin',
 ): Promise<void> {
-  const prev = node.style.transform
-  node.style.transform = 'none'
-  try {
-    const canvas = await html2canvas(node, {
-      scale: 2,
-      backgroundColor: null,
-      useCORS: true,
-      logging: false,
-    })
-    node.style.transform = prev
-    const a = document.createElement('a')
-    a.href = canvas.toDataURL('image/png')
-    a.download = clientSlug + '-criativo-' + (idx + 1) + '.png'
-    a.click()
-  } catch (err) {
-    node.style.transform = prev
-    throw err
-  }
+  const canvas = await snapshot(node)
+  const a = document.createElement('a')
+  a.href = canvas.toDataURL('image/png')
+  a.download = clientSlug + '-criativo-' + (idx + 1) + '.png'
+  a.click()
+}
+
+/** Captura o nó do criativo como data URL JPEG — leve, para enviar ao backend. */
+export async function captureJpeg(node: HTMLElement, quality = 0.92): Promise<string> {
+  const canvas = await snapshot(node)
+  // fundo branco: JPEG não tem transparência, senão o alpha vira preto
+  const flat = document.createElement('canvas')
+  flat.width = canvas.width
+  flat.height = canvas.height
+  const ctx = flat.getContext('2d')!
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, flat.width, flat.height)
+  ctx.drawImage(canvas, 0, 0)
+  return flat.toDataURL('image/jpeg', quality)
 }
 
 function wrap(c: CanvasRenderingContext2D, str: string, maxW: number): string[] {
