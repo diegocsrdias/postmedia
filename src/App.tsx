@@ -16,7 +16,7 @@ import {
 } from './lib/api'
 import type { InsightsSummary, StoryTarget } from './lib/api'
 import { pickFresh, postTextOf } from './lib/creatives'
-import { captureJpeg, captureJpegBlob, recordReels } from './lib/export'
+import { captureJpeg, captureJpegBlob, downloadImage, recordReels } from './lib/export'
 import type { Angle, Creative, CreativeFields, Filter, Format } from './types'
 import type { ImageMode } from './lib/api'
 import { FONT, RADIUS, SHADOW, UI, fieldLabel, monoLabel, segButton, segGroup } from './ui/theme'
@@ -388,6 +388,23 @@ export default function App() {
       flash('Falhou: ' + String((err as Error)?.message || err))
     } finally {
       setPostingIdx(null)
+    }
+  }
+
+  /** Baixa a imagem do criativo (PNG) para postar manualmente com áudio em alta. */
+  const doDownloadImage = async (idx: number) => {
+    if (postingIdx !== null || carouselPosting) return
+    const node = document.querySelector<HTMLElement>('[data-cap="' + idx + '"]')
+    if (!node) {
+      flash('Aguarde carregar…')
+      return
+    }
+    flash('Gerando imagem…')
+    try {
+      await downloadImage(node, client.id + '-criativo-' + (idx + 1) + '.png')
+      flash('Imagem baixada! 🐷')
+    } catch (err) {
+      flash('Falhou: ' + String((err as Error)?.message || err))
     }
   }
 
@@ -1029,6 +1046,7 @@ export default function App() {
                 void doPublishStory(cardIdx, targets, trial)
               }
               onDownloadVideo={(cardIdx) => void doDownloadVideo(cardIdx)}
+              onDownloadImage={(cardIdx) => void doDownloadImage(cardIdx)}
               onGenImage={(cardIdx, mode) => void genImage(cardIdx, mode)}
               onClearImage={clearImage}
               busy={generating}

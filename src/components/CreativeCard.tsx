@@ -27,6 +27,8 @@ interface Props {
   onPublishStory: (idx: number, targets: StoryTarget[], trial?: boolean) => void
   /** Baixa o vídeo para postar manualmente no app (com áudio em alta). */
   onDownloadVideo: (idx: number) => void
+  /** Baixa a imagem (PNG) para postar manualmente. */
+  onDownloadImage: (idx: number) => void
   onGenImage: (idx: number, mode: ImageMode) => void
   onClearImage: (idx: number) => void
   busy: boolean
@@ -325,6 +327,17 @@ export function CreativeCard(props: Props) {
               </div>
             )}
           </div>
+        )}
+
+        {/* baixar imagem — feed/carrossel — para postar manualmente com áudio em alta */}
+        {square && (
+          <button
+            onClick={() => props.onDownloadImage(idx)}
+            title="Baixar a imagem (PNG) para postar manualmente no app"
+            style={{ ...button('ghost'), width: '100%', fontSize: 13 }}
+          >
+            ⬇ Baixar imagem (p/ postar manual)
+          </button>
         )}
       </div>
     </div>

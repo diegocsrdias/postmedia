@@ -35,6 +35,15 @@ export async function captureJpeg(node: HTMLElement, quality = 0.92): Promise<st
   return (await flatten(node)).toDataURL('image/jpeg', quality)
 }
 
+/** Baixa o criativo como PNG (para postar manualmente com áudio em alta). */
+export async function downloadImage(node: HTMLElement, filename: string): Promise<void> {
+  const canvas = await snapshot(node)
+  const a = document.createElement('a')
+  a.href = canvas.toDataURL('image/png')
+  a.download = filename
+  a.click()
+}
+
 /** Captura o nó como Blob JPEG — para subir via URL assinada (carrossel). */
 export async function captureJpegBlob(node: HTMLElement, quality = 0.92): Promise<Blob> {
   const flat = await flatten(node)
