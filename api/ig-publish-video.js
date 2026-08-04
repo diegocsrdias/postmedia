@@ -8,7 +8,7 @@ import { publicUrl, uploadMedia } from './_lib/supabase.js'
 export default async function handler(req, res) {
   if (preflight(req, res)) return
   try {
-    const { path, targets = [], caption = '', coverBase64, meta = {} } = await readJson(req)
+    const { path, targets = [], caption = '', coverBase64, trial = false, meta = {} } = await readJson(req)
     if (!path) throw new Error('path do vídeo ausente')
     const list = (Array.isArray(targets) ? targets : []).filter((t) => t === 'story' || t === 'reels')
     if (!list.length) throw new Error('nenhum alvo válido (story/reels)')
@@ -39,6 +39,7 @@ export default async function handler(req, res) {
           caption: String(caption),
           target,
           coverUrl: target === 'reels' ? coverUrl : '',
+          trial: target === 'reels' ? !!trial : false,
           meta: cleanMeta,
         }),
       ),

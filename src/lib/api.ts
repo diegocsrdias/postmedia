@@ -149,6 +149,26 @@ export async function publishToInstagram(
   })
 }
 
+/** Ranking (média por chave) devolvido pelo resumo de desempenho. */
+export interface RankRow {
+  key: string
+  avg: number
+  n: number
+}
+
+export interface InsightsSummary {
+  count: number
+  totalPosts: number
+  byHour: RankRow[]
+  byAngle: RankRow[]
+  byFormat: RankRow[]
+}
+
+/** Resumo de desempenho (melhores horários/ângulos) para orientar a criação. */
+export async function fetchInsightsSummary(client: string): Promise<InsightsSummary> {
+  return post<InsightsSummary>('insights-summary', { client })
+}
+
 /** Onde publicar um vídeo vertical: no Story, nos Reels, ou em ambos. */
 export type StoryTarget = 'story' | 'reels'
 
@@ -191,14 +211,15 @@ export async function publishVideoToInstagram(
   targets: StoryTarget[],
   caption: string,
   meta: PublishMeta,
-  coverBase64?: string,
+  opts: { coverBase64?: string; trial?: boolean } = {},
 ): Promise<{ results: VideoPublishResult[] }> {
   return post<{ results: VideoPublishResult[] }>('ig-publish-video', {
     path,
     targets,
     caption,
     meta,
-    coverBase64,
+    coverBase64: opts.coverBase64,
+    trial: opts.trial,
   })
 }
 

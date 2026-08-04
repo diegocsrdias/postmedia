@@ -4,6 +4,7 @@ import { CLIENT_LIST, DEFAULT_CLIENT, getClient } from './clients'
 import type { ClientId } from './clients'
 import { ANGLE_LABELS, ANGLE_ORDER } from './data/shared'
 import {
+  fetchInsightsSummary,
   generateAds,
   generateByTheme,
   generateImage,
@@ -12,12 +13,12 @@ import {
   publishVideoToInstagram,
   uploadVideo,
 } from './lib/api'
-import type { StoryTarget } from './lib/api'
+import type { InsightsSummary, StoryTarget } from './lib/api'
 import { pickFresh, postTextOf } from './lib/creatives'
 import { captureJpeg, recordReels } from './lib/export'
-import type { Creative, CreativeFields, Filter, Format } from './types'
+import type { Angle, Creative, CreativeFields, Filter, Format } from './types'
 import type { ImageMode } from './lib/api'
-import { FONT, RADIUS, SHADOW, UI, monoLabel, segButton, segGroup } from './ui/theme'
+import { FONT, RADIUS, SHADOW, UI, fieldLabel, monoLabel, segButton, segGroup } from './ui/theme'
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
@@ -52,6 +53,10 @@ export default function App() {
   const [busyCardIdx, setBusyCardIdx] = useState<number | null>(null)
   // índice do card que está sendo postado no Instagram (trava só aquele botão)
   const [postingIdx, setPostingIdx] = useState<number | null>(null)
+  // painel de desempenho (melhores horários/ângulos)
+  const [insights, setInsights] = useState<InsightsSummary | null>(null)
+  const [insightsOpen, setInsightsOpen] = useState(false)
+  const [insightsLoading, setInsightsLoading] = useState(false)
   const [creatives, setCreatives] = useState<Creative[]>(() =>
     pickFresh(getClient(getInitialClientId()).bank, 1, 'all', []),
   )
@@ -278,6 +283,22 @@ export default function App() {
     })
 
   // ----- ações -----
+  /** Abre/fecha o painel de desempenho, buscando o resumo ao abrir. */
+  const toggleInsights = async () => {
+    const next = !insightsOpen
+    setInsightsOpen(next)
+    if (!next) return
+    setInsightsLoading(true)
+    try {
+      setInsights(await fetchInsightsSummary(client.id))
+    } catch (err) {
+      flash('Não consegui carregar o desempenho: ' + String((err as Error)?.message || err))
+      setInsightsOpen(false)
+    } finally {
+      setInsightsLoading(false)
+    }
+  }
+
   /** Legenda completa que vai na descrição do post: texto + hashtags. */
   const fullCaption = (c: Creative) => (c.caption + (c.hashtags ? '\n\n' + c.hashtags : '')).trim()
 
@@ -347,14 +368,20 @@ export default function App() {
    * Grava o vídeo animado (~6s) do card e publica no Story e/ou nos Reels.
    * O vídeo é enviado direto ao bucket (URL assinada) e publicado via backend.
    */
-  const doPublishStory = async (idx: number, targets: StoryTarget[]) => {
+  const doPublishStory = async (idx: number, targets: StoryTarget[], trial = false) => {
     if (postingIdx !== null) return
     const node = document.querySelector<HTMLElement>('[data-cap="' + idx + '"]')
     if (!node) {
       flash('Aguarde carregar…')
       return
     }
-    const label = targets.length > 1 ? 'Story + Reels' : targets[0] === 'reels' ? 'Reels' : 'Story'
+    const label = trial
+      ? 'Trial Reels'
+      : targets.length > 1
+        ? 'Story + Reels'
+        : targets[0] === 'reels'
+          ? 'Reels'
+          : 'Story'
     setPostingIdx(idx)
     flash('Gravando e publicando (' + label + ')…')
     try {
@@ -374,7 +401,7 @@ export default function App() {
         targets,
         fullCaption(creatives[idx]),
         metaOf(creatives[idx], 'story'),
-        cover,
+        { coverBase64: cover, trial },
       )
       const failed = results.filter((r) => r.error)
       if (!failed.length) {
@@ -746,6 +773,86 @@ export default function App() {
 
       </div>
 
+      {/* ===== Desempenho (melhores horários/ângulos) ===== */}
+      <div className="app-container app-pad" style={{ paddingTop: 16 }}>
+        <button
+          onClick={() => void toggleInsights()}
+          style={{
+            background: UI.surface,
+            border: '1px solid ' + UI.border,
+            borderRadius: 12,
+            padding: '10px 16px',
+            fontSize: 14,
+            fontWeight: 700,
+            color: UI.ink,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          📊 Desempenho {insightsOpen ? '▲' : '▼'}
+        </button>
+        {insightsOpen && (
+          <div
+            style={{
+              marginTop: 12,
+              background: UI.surface,
+              border: '1px solid ' + UI.border,
+              borderRadius: 14,
+              padding: '18px 20px',
+            }}
+          >
+            {insightsLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: UI.inkMuted }}>
+                <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                Analisando seus posts…
+              </div>
+            ) : !insights || insights.count === 0 ? (
+              <div style={{ fontSize: 13, color: UI.inkMuted, lineHeight: 1.5 }}>
+                Ainda sem posts com métricas para {client.name}. Publique alguns e volte em ~1 dia —
+                as métricas (alcance, salvos…) são sincronizadas automaticamente todo dia.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ fontSize: 12, color: UI.inkMuted2 }}>
+                  Baseado em <strong>{insights.count}</strong> post
+                  {insights.count > 1 ? 's' : ''} com métricas · score = alcance (ou engajamento)
+                </div>
+                <InsightBlock
+                  title="⏰ Melhores horários"
+                  rows={insights.byHour.slice(0, 4).map((r) => ({
+                    label: r.key + 'h',
+                    avg: r.avg,
+                    n: r.n,
+                  }))}
+                />
+                <InsightBlock
+                  title="🎯 Melhores ângulos"
+                  rows={insights.byAngle.slice(0, 4).map((r) => ({
+                    label: ANGLE_LABELS[r.key as Angle] ?? r.key,
+                    avg: r.avg,
+                    n: r.n,
+                  }))}
+                />
+                <InsightBlock
+                  title="🖼️ Melhores formatos"
+                  rows={insights.byFormat.slice(0, 4).map((r) => ({
+                    label: FORMAT_LABELS[r.key] ?? r.key,
+                    avg: r.avg,
+                    n: r.n,
+                  }))}
+                />
+                <div style={{ fontSize: 11, color: UI.inkMuted2, lineHeight: 1.5 }}>
+                  💡 Guia por enquanto: use os melhores horários/ângulos ao gerar. (A geração ainda
+                  não puxa isso sozinha — é o próximo passo do ciclo de aprendizado.)
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ===== Grid ===== */}
       <div className="app-container app-pad" style={{ paddingTop: 24, paddingBottom: 80 }}>
         <div className="creatives-grid">
@@ -766,7 +873,9 @@ export default function App() {
               onEditHashtags={editHashtags}
               onRegen={regenerateOne}
               onPublish={(cardIdx) => void doPublish(cardIdx)}
-              onPublishStory={(cardIdx, targets) => void doPublishStory(cardIdx, targets)}
+              onPublishStory={(cardIdx, targets, trial) =>
+                void doPublishStory(cardIdx, targets, trial)
+              }
               onDownloadVideo={(cardIdx) => void doDownloadVideo(cardIdx)}
               onGenImage={(cardIdx, mode) => void genImage(cardIdx, mode)}
               onClearImage={clearImage}
@@ -816,6 +925,61 @@ export default function App() {
           {toast}
         </div>
       )}
+    </div>
+  )
+}
+
+// rótulos amigáveis dos formatos no painel de desempenho
+const FORMAT_LABELS: Record<string, string> = {
+  feed: 'Feed',
+  reels: 'Reels',
+  story: 'Story',
+  trial_reel: 'Trial Reel',
+}
+
+/** Uma seção do painel de desempenho: título + linhas ranqueadas por média. */
+function InsightBlock({
+  title,
+  rows,
+}: {
+  title: string
+  rows: { label: string; avg: number; n: number }[]
+}) {
+  if (!rows.length) return null
+  const max = Math.max(...rows.map((r) => r.avg), 1)
+  return (
+    <div>
+      <div style={{ ...fieldLabel, marginBottom: 8 }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {rows.map((r) => (
+          <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: 90, fontSize: 13, fontWeight: 600, color: UI.ink }}>
+              {r.label}
+            </span>
+            <div
+              style={{
+                flex: 1,
+                height: 8,
+                background: UI.surfaceAlt,
+                borderRadius: 999,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: Math.round((r.avg / max) * 100) + '%',
+                  height: '100%',
+                  background: UI.accent,
+                  borderRadius: 999,
+                }}
+              />
+            </div>
+            <span style={{ fontSize: 12, color: UI.inkMuted, width: 96, textAlign: 'right' }}>
+              {r.avg.toLocaleString('pt-BR')} · {r.n}×
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

@@ -22,8 +22,9 @@ interface Props {
   onRegen: (idx: number) => void
   /** Publica a imagem no feed (formato 1:1). */
   onPublish: (idx: number) => void
-  /** Publica o vídeo vertical no Story e/ou nos Reels (formato 9:16). */
-  onPublishStory: (idx: number, targets: StoryTarget[]) => void
+  /** Publica o vídeo vertical no Story e/ou nos Reels (formato 9:16).
+   *  `trial` publica um Trial Reel (só para não-seguidores, por 72h). */
+  onPublishStory: (idx: number, targets: StoryTarget[], trial?: boolean) => void
   /** Baixa o vídeo para postar manualmente no app (com áudio em alta). */
   onDownloadVideo: (idx: number) => void
   onGenImage: (idx: number, mode: ImageMode) => void
@@ -304,13 +305,22 @@ export function CreativeCard(props: Props) {
               </div>
             )}
             {!posting && (
-              <button
-                onClick={() => props.onDownloadVideo(idx)}
-                title="Baixar o vídeo para postar no app e escolher um áudio em alta (a API não permite áudio da biblioteca)"
-                style={{ ...button('ghost'), width: '100%', fontSize: 13 }}
-              >
-                ⬇ Baixar vídeo (p/ áudio em alta no app)
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => props.onPublishStory(idx, ['reels'], true)}
+                  title="Trial Reel: publica só para NÃO-seguidores por 72h, para testar o desempenho antes de mostrar aos seguidores"
+                  style={{ ...button('ghost'), flex: 1, fontSize: 13 }}
+                >
+                  🧪 Trial Reels
+                </button>
+                <button
+                  onClick={() => props.onDownloadVideo(idx)}
+                  title="Baixar o vídeo para postar no app e escolher um áudio em alta (a API não permite áudio da biblioteca)"
+                  style={{ ...button('ghost'), flex: 1, fontSize: 13 }}
+                >
+                  ⬇ Baixar (áudio no app)
+                </button>
+              </div>
             )}
           </div>
         )}

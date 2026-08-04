@@ -187,7 +187,7 @@ export async function publishImage({ imageDataUrl, caption, meta = {} }) {
  * Publica um vídeo (já hospedado em `videoUrl`) no Story ou nos Reels.
  * `target` é 'story' ou 'reels'. Retorna { id, permalink, postId }.
  */
-export async function publishVideo({ videoUrl, caption, target, coverUrl, meta = {} }) {
+export async function publishVideo({ videoUrl, caption, target, coverUrl, trial = false, meta = {} }) {
   const { userId, token } = igConfig()
   const mediaType = target === 'reels' ? 'REELS' : 'STORIES'
 
@@ -200,10 +200,16 @@ export async function publishVideo({ videoUrl, caption, target, coverUrl, meta =
   if (mediaType === 'REELS') {
     // Story não usa legenda; Reels sim.
     if (caption) params.caption = caption
-    // o Reel também aparece no feed (mais alcance)
-    params.share_to_feed = 'true'
     // capa nítida (thumbnail) a partir de um frame do card
     if (coverUrl) params.cover_url = coverUrl
+    if (trial) {
+      // Trial Reel: exibido só a NÃO-seguidores por 72h para testar antes.
+      // graduation_strategy MANUAL = você decide depois se libera aos seguidores.
+      params.trial_params = JSON.stringify({ graduation_strategy: 'MANUAL' })
+    } else {
+      // o Reel normal também aparece no feed (mais alcance)
+      params.share_to_feed = 'true'
+    }
   }
   const container = await graph(`/${userId}/media`, params)
   if (!container?.id) throw new Error('Instagram não devolveu id do container')
@@ -223,14 +229,14 @@ export async function publishVideo({ videoUrl, caption, target, coverUrl, meta =
     /* segue sem link */
   }
 
-  // 5) registra no banco
+  // 5) registra no banco (trial reel marcado à parte para o aprendizado)
   const postId = await logPost({
     published,
     permalink,
     mediaUrl: videoUrl,
     caption: mediaType === 'REELS' ? caption : null,
     meta,
-    format: target,
+    format: trial ? 'trial_reel' : target,
   })
 
   return { id: published.id, permalink, postId }

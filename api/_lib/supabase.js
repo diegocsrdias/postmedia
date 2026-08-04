@@ -82,6 +82,19 @@ export async function listPublishedPosts(limit = 50) {
   return data || []
 }
 
+/** Posts com dados para análise de desempenho (mais recentes primeiro). */
+export async function listPostsForAnalysis(limit = 500) {
+  const sb = supabase()
+  const { data, error } = await sb
+    .from('posts')
+    .select('published_at, client, angle, layout, format, like_count, comments_count, reach, saved, shares')
+    .not('ig_media_id', 'is', null)
+    .order('published_at', { ascending: false })
+    .limit(limit)
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data || []
+}
+
 /** Atualiza as métricas de um post. */
 export async function updatePostMetrics(id, metrics) {
   const sb = supabase()
