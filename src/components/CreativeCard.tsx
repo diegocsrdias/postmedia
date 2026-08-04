@@ -34,6 +34,8 @@ interface Props {
   busyImage?: boolean
   /** true quando ESTE card está sendo publicado no Instagram */
   posting?: boolean
+  /** no modo carrossel os botões de publicar do card somem (posta pela barra) */
+  carouselMode?: boolean
 }
 
 // Cor da marca do Instagram, usada nos botões de publicar.
@@ -261,8 +263,8 @@ export function CreativeCard(props: Props) {
           </label>
         </div>
 
-        {/* ===== Publicar ===== */}
-        {square ? (
+        {/* ===== Publicar ===== (escondido no modo carrossel: posta pela barra) */}
+        {props.carouselMode ? null : square ? (
           // Feed 1:1 — publica a imagem.
           <button
             onClick={() => props.onPublish(idx)}

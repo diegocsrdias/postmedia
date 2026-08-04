@@ -177,22 +177,43 @@ export type StoryTarget = 'story' | 'reels'
  * pedida ao backend — evita o limite de corpo da função e mantém as chaves no
  * servidor. Retorna o `path` do arquivo no bucket.
  */
-export async function uploadVideo(blob: Blob, client: string, ext: string): Promise<string> {
+const CONTENT_TYPES: Record<string, string> = {
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+}
+
+/** Sobe um Blob ao bucket via URL assinada. Devolve o `path` no bucket. */
+export async function uploadFile(blob: Blob, client: string, ext: string): Promise<string> {
   const { uploadUrl, path } = await post<{ uploadUrl: string; path: string }>('ig-upload-url', {
     client,
     ext,
   })
-  const contentType = ext === 'webm' ? 'video/webm' : 'video/mp4'
   const res = await fetch(uploadUrl, {
     method: 'PUT',
-    headers: { 'Content-Type': contentType, 'x-upsert': 'true' },
+    headers: { 'Content-Type': CONTENT_TYPES[ext] || 'application/octet-stream', 'x-upsert': 'true' },
     body: blob,
   })
   if (!res.ok) {
     const t = await res.text().catch(() => '')
-    throw new Error('Falha no upload do vídeo: ' + res.status + ' ' + t.slice(0, 200))
+    throw new Error('Falha no upload: ' + res.status + ' ' + t.slice(0, 200))
   }
   return path
+}
+
+/** Publica um carrossel (imagens já subidas via uploadFile) no feed. */
+export async function publishCarousel(
+  paths: string[],
+  caption: string,
+  meta: PublishMeta,
+): Promise<{ id: string; permalink?: string; postId?: string }> {
+  return post<{ id: string; permalink?: string; postId?: string }>('ig-publish-carousel', {
+    paths,
+    caption,
+    meta,
+  })
 }
 
 /**

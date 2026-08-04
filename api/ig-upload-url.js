@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   if (preflight(req, res)) return
   try {
     const { client = 'post', ext = 'mp4' } = await readJson(req)
-    const safeExt = /^(mp4|webm)$/.test(String(ext)) ? ext : 'mp4'
+    const safeExt = /^(mp4|webm|jpg|jpeg|png)$/.test(String(ext)) ? ext : 'mp4'
     const now = new Date()
     const path = `${String(client)}/${now.getFullYear()}/${now.getTime()}-${Math.random()
       .toString(36)

@@ -9,13 +9,14 @@ import {
   generateByTheme,
   generateImage,
   generateMix,
+  publishCarousel,
   publishToInstagram,
   publishVideoToInstagram,
-  uploadVideo,
+  uploadFile,
 } from './lib/api'
 import type { InsightsSummary, StoryTarget } from './lib/api'
 import { pickFresh, postTextOf } from './lib/creatives'
-import { captureJpeg, recordReels } from './lib/export'
+import { captureJpeg, captureJpegBlob, recordReels } from './lib/export'
 import type { Angle, Creative, CreativeFields, Filter, Format } from './types'
 import type { ImageMode } from './lib/api'
 import { FONT, RADIUS, SHADOW, UI, fieldLabel, monoLabel, segButton, segGroup } from './ui/theme'
@@ -57,6 +58,9 @@ export default function App() {
   const [insights, setInsights] = useState<InsightsSummary | null>(null)
   const [insightsOpen, setInsightsOpen] = useState(false)
   const [insightsLoading, setInsightsLoading] = useState(false)
+  // modo carrossel: a grade vira as N telas de um carrossel único
+  const [carouselMode, setCarouselMode] = useState(false)
+  const [carouselPosting, setCarouselPosting] = useState(false)
   const [creatives, setCreatives] = useState<Creative[]>(() =>
     pickFresh(getClient(getInitialClientId()).bank, 1, 'all', []),
   )
@@ -96,6 +100,7 @@ export default function App() {
   // ----- geração -----
   const generateAll = useCallback(
     (nextFilter = filter, nextCount = count) => {
+      setCarouselMode(false) // gerar avulso sai do modo carrossel
       if (nextFilter === 'anuncio') {
         void generateAdsAI(nextCount, null)
         return
@@ -302,6 +307,57 @@ export default function App() {
   /** Legenda completa que vai na descrição do post: texto + hashtags. */
   const fullCaption = (c: Creative) => (c.caption + (c.hashtags ? '\n\n' + c.hashtags : '')).trim()
 
+  /** Gera N telas coesas e entra em modo carrossel (feed 1:1). */
+  const doGenerateCarousel = async (n = 3) => {
+    if (generating || carouselPosting) return
+    setFormat('square') // carrossel é sempre feed 1:1
+    setGenerating(true)
+    setLoadingMsg('Criando ' + n + ' telas para o carrossel…')
+    try {
+      let slides = await generateMix(n, existingText(), client.id)
+      if (slides.length < n) {
+        const fill = pickFresh(client.bank, n - slides.length, 'all', slides.map((s) => s._key))
+        slides = slides.concat(fill).slice(0, n)
+      }
+      setCreatives(slides.slice(0, n))
+      setCarouselMode(true)
+    } catch (err) {
+      flash(aiError(err))
+    } finally {
+      setGenerating(false)
+      setLoadingMsg('')
+    }
+  }
+
+  /** Captura todas as telas atuais e publica como um carrossel único. */
+  const doPublishCarousel = async () => {
+    if (carouselPosting) return
+    const n = creatives.length
+    if (n < 2) {
+      flash('Carrossel precisa de ao menos 2 telas')
+      return
+    }
+    setCarouselPosting(true)
+    flash('Publicando carrossel…')
+    try {
+      const paths: string[] = []
+      for (let i = 0; i < n; i++) {
+        const node = document.querySelector<HTMLElement>('[data-cap="' + i + '"]')
+        if (!node) throw new Error('A tela ' + (i + 1) + ' não carregou')
+        const blob = await captureJpegBlob(node)
+        paths.push(await uploadFile(blob, client.id, 'jpg'))
+      }
+      const first = creatives[0]
+      await publishCarousel(paths, fullCaption(first), metaOf(first, 'feed'))
+      flash('Carrossel publicado! 🎉')
+      setCarouselMode(false)
+    } catch (err) {
+      flash('Falhou: ' + String((err as Error)?.message || err))
+    } finally {
+      setCarouselPosting(false)
+    }
+  }
+
   /** Dados do criativo guardados no banco (o "DNA" para o aprendizado). */
   const metaOf = (c: Creative, fmt: 'feed' | 'story') => ({
     client: client.id,
@@ -395,7 +451,7 @@ export default function App() {
             'Use o Chrome/Edge atualizado (que grava em MP4).',
         )
       }
-      const path = await uploadVideo(blob, client.id, ext)
+      const path = await uploadFile(blob, client.id, ext)
       const { results } = await publishVideoToInstagram(
         path,
         targets,
@@ -564,39 +620,64 @@ export default function App() {
               Criativos de hoje
             </h1>
             <p style={{ margin: 0, color: UI.inkMuted, fontSize: 15, maxWidth: 560 }}>
-              A IA cria posts originais pra Facebook, Instagram e TikTok. Ajuste o texto, copie a
-              legenda e baixe a arte em PNG.
+              A IA cria posts originais e publica direto no Instagram — feed, Story, Reels e
+              carrossel.
             </p>
           </div>
-          <button
-            onClick={() => generateAll()}
-            disabled={generating}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 10,
-              background: UI.dark,
-              color: UI.darkText,
-              border: 'none',
-              borderRadius: RADIUS.pill,
-              padding: '15px 28px',
-              fontWeight: 800,
-              fontSize: 16,
-              cursor: generating ? 'default' : 'pointer',
-              opacity: generating ? 0.7 : 1,
-              boxShadow: SHADOW.raised,
-            }}
-          >
-            {generating ? (
-              <span
-                className="spinner"
-                style={{ width: 18, height: 18, borderWidth: 2.5, color: UI.darkText }}
-              />
-            ) : (
-              <span style={{ fontSize: 19 }}>🎲</span>
-            )}{' '}
-            {generating ? 'Criando…' : 'Gerar criativo com IA'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button
+              onClick={() => generateAll()}
+              disabled={generating || carouselPosting}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                background: UI.dark,
+                color: UI.darkText,
+                border: 'none',
+                borderRadius: RADIUS.pill,
+                padding: '15px 28px',
+                fontWeight: 800,
+                fontSize: 16,
+                cursor: generating ? 'default' : 'pointer',
+                opacity: generating ? 0.7 : 1,
+                boxShadow: SHADOW.raised,
+              }}
+            >
+              {generating ? (
+                <span
+                  className="spinner"
+                  style={{ width: 18, height: 18, borderWidth: 2.5, color: UI.darkText }}
+                />
+              ) : (
+                <span style={{ fontSize: 19 }}>🎲</span>
+              )}{' '}
+              {generating ? 'Criando…' : 'Gerar criativo com IA'}
+            </button>
+            <button
+              onClick={() => void doGenerateCarousel(3)}
+              disabled={generating || carouselPosting}
+              title="Gera 3 telas coesas para postar como um carrossel único no feed"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                background: 'none',
+                color: UI.ink,
+                border: '1px solid ' + UI.border,
+                borderRadius: RADIUS.pill,
+                padding: '10px 20px',
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: generating ? 'default' : 'pointer',
+                opacity: generating ? 0.7 : 1,
+              }}
+            >
+              📚 Gerar carrossel (3)
+            </button>
+          </div>
         </div>
 
         {/* theme / newsjacking */}
@@ -853,12 +934,83 @@ export default function App() {
         )}
       </div>
 
+      {/* ===== Barra do carrossel ===== */}
+      {carouselMode && (
+        <div className="app-container app-pad" style={{ paddingTop: 20 }}>
+          <div
+            style={{
+              background: UI.dark,
+              color: UI.darkText,
+              borderRadius: 14,
+              padding: '14px 18px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span style={{ fontWeight: 800, fontSize: 15 }}>
+              📚 Carrossel de {creatives.length} telas
+            </span>
+            <span style={{ fontSize: 12, color: UI.darkTextMuted }}>
+              Usa a legenda da 1ª tela · arraste no Instagram
+            </span>
+            <div style={{ flex: 1 }} />
+            <button
+              onClick={() => setCarouselMode(false)}
+              disabled={carouselPosting}
+              style={{
+                background: 'none',
+                color: UI.darkTextMuted,
+                border: '1px solid ' + UI.darkBorder,
+                borderRadius: RADIUS.pill,
+                padding: '9px 16px',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: carouselPosting ? 'default' : 'pointer',
+              }}
+            >
+              ✕ Sair
+            </button>
+            <button
+              onClick={() => void doPublishCarousel()}
+              disabled={carouselPosting}
+              style={{
+                background: carouselPosting
+                  ? UI.inkMuted2
+                  : 'linear-gradient(90deg,#833AB4 0%,#E1306C 50%,#F77737 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: RADIUS.pill,
+                padding: '10px 20px',
+                fontWeight: 800,
+                fontSize: 14,
+                cursor: carouselPosting ? 'default' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              {carouselPosting ? (
+                <>
+                  <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                  Publicando…
+                </>
+              ) : (
+                <>📤 Postar carrossel no feed</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ===== Grid ===== */}
       <div className="app-container app-pad" style={{ paddingTop: 24, paddingBottom: 80 }}>
         <div className="creatives-grid">
           {creatives.map((c, i) => (
             <CreativeCard
               key={c._key + '-' + i}
+              carouselMode={carouselMode}
               c={c}
               idx={i}
               square={square}

@@ -243,6 +243,63 @@ export async function publishVideo({ videoUrl, caption, target, coverUrl, trial 
 }
 
 /**
+ * Publica um CARROSSEL (2-10 imagens) no feed e registra em `posts`.
+ * `imageUrls` são URLs públicas (já hospedadas no bucket).
+ */
+export async function publishCarousel({ imageUrls, caption, meta = {} }) {
+  const { userId, token } = igConfig()
+  const urls = (imageUrls || []).filter(Boolean).slice(0, 10)
+  if (urls.length < 2) throw new Error('Carrossel precisa de ao menos 2 imagens')
+
+  // 1) um container-filho por imagem (em paralelo)
+  const children = await Promise.all(
+    urls.map(async (image_url) => {
+      const c = await graph(`/${userId}/media`, {
+        image_url,
+        is_carousel_item: 'true',
+        access_token: token,
+      })
+      if (!c?.id) throw new Error('Instagram não devolveu id de um item do carrossel')
+      return c.id
+    }),
+  )
+
+  // 2) container do carrossel
+  const container = await graph(`/${userId}/media`, {
+    media_type: 'CAROUSEL',
+    children: children.join(','),
+    caption: caption || '',
+    access_token: token,
+  })
+  if (!container?.id) throw new Error('Instagram não devolveu id do carrossel')
+
+  // 3) espera pronto e publica (com retry)
+  await waitContainerReady(container.id, token, { tries: 12, intervalMs: 2000 })
+  const published = await mediaPublish(userId, container.id, token)
+
+  // 4) link
+  let permalink = ''
+  try {
+    const info = await graph(`/${published.id}`, { fields: 'permalink', access_token: token }, 'GET')
+    permalink = info?.permalink || ''
+  } catch {
+    /* segue sem link */
+  }
+
+  // 5) registra
+  const postId = await logPost({
+    published,
+    permalink,
+    mediaUrl: urls[0],
+    caption,
+    meta,
+    format: 'carousel',
+  })
+
+  return { id: published.id, permalink, postId }
+}
+
+/**
  * Lê as métricas de desempenho de um post publicado.
  * Tolerante: o que a API não devolver fica indefinido (não estoura).
  * Retorna { like_count, comments_count, reach, impressions, saved, shares }.

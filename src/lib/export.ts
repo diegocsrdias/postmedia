@@ -16,8 +16,8 @@ async function snapshot(node: HTMLElement): Promise<HTMLCanvasElement> {
   }
 }
 
-/** Captura o nó do criativo como data URL JPEG — leve, para enviar ao backend. */
-export async function captureJpeg(node: HTMLElement, quality = 0.92): Promise<string> {
+/** Renderiza o nó num canvas com fundo branco (base para JPEG). */
+async function flatten(node: HTMLElement): Promise<HTMLCanvasElement> {
   const canvas = await snapshot(node)
   // fundo branco: JPEG não tem transparência, senão o alpha vira preto
   const flat = document.createElement('canvas')
@@ -27,7 +27,20 @@ export async function captureJpeg(node: HTMLElement, quality = 0.92): Promise<st
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, flat.width, flat.height)
   ctx.drawImage(canvas, 0, 0)
-  return flat.toDataURL('image/jpeg', quality)
+  return flat
+}
+
+/** Captura o nó do criativo como data URL JPEG — leve, para enviar ao backend. */
+export async function captureJpeg(node: HTMLElement, quality = 0.92): Promise<string> {
+  return (await flatten(node)).toDataURL('image/jpeg', quality)
+}
+
+/** Captura o nó como Blob JPEG — para subir via URL assinada (carrossel). */
+export async function captureJpegBlob(node: HTMLElement, quality = 0.92): Promise<Blob> {
+  const flat = await flatten(node)
+  return new Promise<Blob>((resolve, reject) =>
+    flat.toBlob((b) => (b ? resolve(b) : reject(new Error('Falha ao gerar JPEG'))), 'image/jpeg', quality),
+  )
 }
 
 function wrap(c: CanvasRenderingContext2D, str: string, maxW: number): string[] {
