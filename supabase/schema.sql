@@ -34,12 +34,23 @@ create table if not exists public.posts (
   impressions        integer,
   saved              integer,
   shares             integer,
-  metrics_updated_at timestamptz
+  metrics_updated_at timestamptz,
+
+  -- histórico: distingue o que foi ao ar do que foi só baixado.
+  --   'published'  → publicado no Instagram (tem ig_media_id/permalink)
+  --   'downloaded' → só baixado pelo usuário (sem ig_media_id; não entra na análise)
+  status        text not null default 'published',
+  media_kind    text                                -- 'image' | 'video' | 'carousel'
 );
 
 create index if not exists posts_client_idx      on public.posts (client);
 create index if not exists posts_published_idx   on public.posts (published_at desc);
 create index if not exists posts_ig_media_idx     on public.posts (ig_media_id);
+create index if not exists posts_status_idx       on public.posts (status);
+
+-- Migração incremental: se a tabela já existia antes destas colunas, adiciona-as.
+alter table public.posts add column if not exists status     text not null default 'published';
+alter table public.posts add column if not exists media_kind text;
 
 -- RLS ligado, sem policies: só a service_role (usada pelo backend) acessa.
 -- A anon key do navegador NÃO consegue ler nem escrever aqui.
@@ -52,3 +63,49 @@ alter table public.posts enable row level security;
 insert into storage.buckets (id, name, public)
 values ('creatives', 'creatives', true)
 on conflict (id) do nothing;
+
+-- ============================================================
+-- Fila do agendador (autopilot). Cada linha = um post agendado que o runner
+-- (api/run-scheduler) vai GERAR + RENDERIZAR (Chromium headless) + PUBLICAR
+-- sozinho no horário. Só o backend (service_role) acessa.
+-- ============================================================
+create table if not exists public.schedule (
+  id             uuid primary key default gen_random_uuid(),
+  created_at     timestamptz not null default now(),
+  client         text not null,
+
+  -- quando publicar e o que publicar
+  scheduled_for  timestamptz not null,
+  format         text not null default 'feed',   -- 'feed' | 'carousel'
+  slides         integer not null default 1,     -- nº de telas (carrossel)
+  theme          text,                            -- tema opcional (newsjacking)
+  angle          text,                            -- ângulo preferido opcional
+  layout         text,                            -- layout preferido opcional
+  image_mode     text,                            -- 'none' | 'editorial' | 'promo'
+
+  -- ciclo de vida
+  status         text not null default 'pending', -- pending|processing|done|error|canceled
+  attempts       integer not null default 0,
+  last_error     text,
+  result_post_id uuid,                            -- id em public.posts quando publicado
+  ran_at         timestamptz
+);
+
+create index if not exists schedule_due_idx on public.schedule (status, scheduled_for);
+create index if not exists schedule_client_idx on public.schedule (client, scheduled_for desc);
+
+alter table public.schedule enable row level security;
+
+-- ============================================================
+-- Memória de desempenho por cliente — o "aprendizado" que realimenta a IA.
+-- Reconstruída periodicamente por api/build-learnings a partir de `posts`.
+-- `brief` é um texto curto (PT-BR) e `stats` guarda os rankings estruturados.
+-- ============================================================
+create table if not exists public.learnings (
+  client      text primary key,
+  updated_at  timestamptz not null default now(),
+  brief       text,
+  stats       jsonb
+);
+
+alter table public.learnings enable row level security;

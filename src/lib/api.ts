@@ -127,6 +127,7 @@ export interface PublishMeta {
   layout?: string
   angle?: string
   headline?: string
+  caption?: string
   hashtags?: string
   fields?: CreativeFields
 }
@@ -161,6 +162,7 @@ export interface InsightsSummary {
   totalPosts: number
   byHour: RankRow[]
   byAngle: RankRow[]
+  byLayout: RankRow[]
   byFormat: RankRow[]
 }
 
@@ -242,6 +244,151 @@ export async function publishVideoToInstagram(
     coverBase64: opts.coverBase64,
     trial: opts.trial,
   })
+}
+
+/* ============================================================
+   Histórico de criativos (postados + baixados)
+   ============================================================ */
+
+/** Tipo de mídia registrada no histórico. */
+export type MediaKind = 'image' | 'video' | 'carousel'
+
+/**
+ * Registra um criativo BAIXADO no histórico: a mídia já foi subida ao bucket
+ * (via uploadFile → `path`) e aqui gravamos a linha em `posts` com status
+ * 'downloaded'. Não publica nada no Instagram.
+ */
+export async function logCreative(
+  path: string,
+  meta: PublishMeta,
+  kind: MediaKind = 'image',
+): Promise<{ id: string | null }> {
+  return post<{ id: string | null }>('log-creative', { path, meta, kind })
+}
+
+/** Uma linha do histórico devolvida pelo backend. */
+export interface HistoryItem {
+  id: string
+  created_at: string
+  published_at: string | null
+  client: string
+  status: 'published' | 'downloaded' | string
+  format: string | null
+  media_kind: MediaKind | null
+  layout: string | null
+  angle: string | null
+  headline: string | null
+  caption: string | null
+  hashtags: string | null
+  media_url: string | null
+  permalink: string | null
+  ig_media_id: string | null
+  like_count: number | null
+  comments_count: number | null
+  reach: number | null
+  saved: number | null
+  shares: number | null
+  metrics_updated_at: string | null
+}
+
+/** Filtros opcionais do histórico. */
+export interface HistoryFilters {
+  status?: string
+  format?: string
+  limit?: number
+}
+
+/** Lista o histórico de criativos (postados e baixados) de um cliente. */
+export async function fetchHistory(
+  client: string,
+  filters: HistoryFilters = {},
+): Promise<{ items: HistoryItem[] }> {
+  return post<{ items: HistoryItem[] }>('history-list', { client, ...filters })
+}
+
+/* ============================================================
+   Aprendizado (memória de desempenho por cliente)
+   ============================================================ */
+
+export interface Learnings {
+  client: string
+  updated_at: string
+  brief: string | null
+  stats: {
+    count: number
+    byHour: RankRow[]
+    byAngle: RankRow[]
+    byLayout: RankRow[]
+    byFormat: RankRow[]
+  } | null
+}
+
+/** Lê a memória de aprendizado de um cliente (ou null se ainda não construída). */
+export async function fetchLearnings(client: string): Promise<{ learnings: Learnings | null }> {
+  return post<{ learnings: Learnings | null }>('learnings-get', { client })
+}
+
+/* ============================================================
+   Agendador (autopilot)
+   ============================================================ */
+
+export type ScheduleFormat = 'feed' | 'carousel'
+
+export interface ScheduleJob {
+  id: string
+  created_at: string
+  client: string
+  scheduled_for: string
+  format: ScheduleFormat | string
+  slides: number
+  theme: string | null
+  angle: string | null
+  layout: string | null
+  image_mode: string | null
+  status: 'pending' | 'processing' | 'done' | 'error' | 'canceled' | string
+  attempts: number
+  last_error: string | null
+  result_post_id: string | null
+  ran_at: string | null
+}
+
+export interface ScheduleInput {
+  client: string
+  scheduledFor: string // ISO
+  format: ScheduleFormat
+  slides?: number
+  theme?: string
+  angle?: string
+  imageMode?: 'none' | 'editorial' | 'promo'
+}
+
+/** Agenda um novo post automático. */
+export async function createSchedule(input: ScheduleInput): Promise<{ job: ScheduleJob }> {
+  return post<{ job: ScheduleJob }>('schedule-create', input)
+}
+
+/** Lista os jobs agendados de um cliente. */
+export async function listSchedule(client: string): Promise<{ jobs: ScheduleJob[] }> {
+  return post<{ jobs: ScheduleJob[] }>('schedule-list', { client })
+}
+
+/** Cancela um job agendado. */
+export async function cancelSchedule(id: string): Promise<{ ok: boolean }> {
+  return post<{ ok: boolean }>('schedule-cancel', { id })
+}
+
+/** Recomendação de cadência/horários com base no desempenho. */
+export interface ScheduleRecommendation {
+  perDay: number
+  hours: number[]
+  rationale: string
+  basedOn: number
+}
+
+export async function fetchScheduleRecommendation(
+  client: string,
+): Promise<ScheduleRecommendation> {
+  return post<ScheduleRecommendation>('schedule-recommend', { client })
 }
 
 interface RawAd {

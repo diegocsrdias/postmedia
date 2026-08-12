@@ -50,6 +50,29 @@ img {
   padding-right: 28px;
 }
 
+/* Navegação por abas (desktop) */
+.app-nav {
+  overflow-x: auto;
+}
+
+/* Bottom nav (mobile) — escondida no desktop */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  background: #ffffff;
+  border-top: 1px solid #e4e4e7;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.show-mobile {
+  display: none;
+}
+
 /* Grid de criativos */
 .creatives-grid {
   display: grid;
@@ -63,6 +86,20 @@ img {
   flex-wrap: wrap;
   gap: 18px 26px;
   align-items: center;
+}
+
+/* Galeria do histórico */
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+@media (max-width: 480px) {
+  .history-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
 }
 
 /* ---- Tablet / telas médias ---- */
@@ -85,6 +122,20 @@ img {
   /* cada grupo da toolbar ocupa a linha inteira e alinha à esquerda */
   .toolbar > * {
     flex: 1 1 100%;
+  }
+}
+
+/* ---- Alterna nav de topo (desktop) x bottom-nav (mobile) ---- */
+@media (max-width: 720px) {
+  .hide-mobile {
+    display: none !important;
+  }
+  .show-mobile {
+    display: flex !important;
+  }
+  /* espaço pro conteúdo não ficar atrás da bottom-nav */
+  main {
+    padding-bottom: 64px;
   }
 }
 

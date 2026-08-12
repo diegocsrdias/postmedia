@@ -87,10 +87,101 @@ export async function listPostsForAnalysis(limit = 500) {
   const sb = supabase()
   const { data, error } = await sb
     .from('posts')
-    .select('published_at, client, angle, layout, format, like_count, comments_count, reach, saved, shares')
+    .select('published_at, client, angle, layout, format, headline, like_count, comments_count, reach, saved, shares')
     .not('ig_media_id', 'is', null)
     .order('published_at', { ascending: false })
     .limit(limit)
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data || []
+}
+
+/**
+ * Histórico de criativos: tudo que foi POSTADO ou só BAIXADO (o `status`
+ * distingue). Ao contrário de listPostsForAnalysis, NÃO filtra por ig_media_id,
+ * então downloads entram. Ordena pelo que aconteceu por último.
+ */
+export async function listHistory(client, { status, format, limit = 60 } = {}) {
+  const sb = supabase()
+  let q = sb
+    .from('posts')
+    .select(
+      'id, created_at, published_at, client, status, format, media_kind, layout, angle, headline, caption, hashtags, media_url, permalink, ig_media_id, like_count, comments_count, reach, saved, shares, metrics_updated_at',
+    )
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 60, 1), 200))
+  if (client) q = q.eq('client', client)
+  if (status) q = q.eq('status', status)
+  if (format) q = q.eq('format', format)
+  const { data, error } = await q
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data || []
+}
+
+/** Lê a memória de aprendizado de um cliente (ou null se ainda não existe). */
+export async function getLearnings(client) {
+  const sb = supabase()
+  const { data, error } = await sb
+    .from('learnings')
+    .select('client, updated_at, brief, stats')
+    .eq('client', client)
+    .maybeSingle()
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data || null
+}
+
+/** Grava/atualiza a memória de aprendizado de um cliente. */
+export async function upsertLearnings(client, brief, stats) {
+  const sb = supabase()
+  const { error } = await sb
+    .from('learnings')
+    .upsert(
+      { client, brief: brief || null, stats: stats || null, updated_at: new Date().toISOString() },
+      { onConflict: 'client' },
+    )
+  if (error) throw new Error('Supabase DB: ' + error.message)
+}
+
+// ---- Fila do agendador (autopilot) ----
+
+/** Jobs vencidos e ainda pendentes (mais antigos primeiro). */
+export async function listDueJobs(nowIso, limit = 5) {
+  const sb = supabase()
+  const { data, error } = await sb
+    .from('schedule')
+    .select('*')
+    .eq('status', 'pending')
+    .lte('scheduled_for', nowIso)
+    .order('scheduled_for', { ascending: true })
+    .limit(limit)
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data || []
+}
+
+/** Insere um job na fila e devolve o registro criado. */
+export async function insertJob(row) {
+  const sb = supabase()
+  const { data, error } = await sb.from('schedule').insert(row).select().single()
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data
+}
+
+/** Aplica um patch parcial a um job. */
+export async function updateJob(id, patch) {
+  const sb = supabase()
+  const { error } = await sb.from('schedule').update(patch).eq('id', id)
+  if (error) throw new Error('Supabase DB: ' + error.message)
+}
+
+/** Lista os jobs de um cliente (mais recentes/futuros primeiro) para a UI. */
+export async function listJobs(client, limit = 50) {
+  const sb = supabase()
+  let q = sb
+    .from('schedule')
+    .select('*')
+    .order('scheduled_for', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 50, 1), 200))
+  if (client) q = q.eq('client', client)
+  const { data, error } = await q
   if (error) throw new Error('Supabase DB: ' + error.message)
   return data || []
 }
