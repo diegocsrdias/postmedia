@@ -140,3 +140,66 @@ src/
   a imagem em base64 (data URL), sem depender de CORS de host externo.
 - O arquivo original `gerador-criativos-offline.html` foi mantido na raiz como
   referência do estado anterior.
+
+## Telas da ferramenta
+
+O app é dividido em quatro telas (abas no desktop, barra inferior no mobile):
+
+- **🎨 Estúdio** — gerar, editar e publicar criativos (feed, Story, Reels,
+  carrossel). É a tela original.
+- **🗂️ Histórico** — tudo que foi **postado** ou apenas **baixado**, com
+  thumbnail, dados do criativo e (para posts publicados) as métricas.
+- **📅 Agenda** — o agendador autopilot (abaixo).
+- **📊 Desempenho** — o que vem funcionando melhor + o resumo que a IA aprendeu.
+
+## Histórico (postados + baixados)
+
+Toda publicação já virava linha em `posts`. Agora **downloads também são
+registrados** (status `downloaded`): ao baixar um PNG/vídeo, o app sobe a mídia
+ao bucket e grava a linha via `POST /api/log-creative`. A tela Histórico lista
+tudo por `POST /api/history-list`.
+
+## Ciclo de aprendizado (a IA aprende com o desempenho)
+
+A sync diária de métricas alimenta um **resumo por conta**:
+
+1. `api/build-learnings` (cron diário, 09:15) lê os posts com métricas, calcula
+   rankings (ângulo, layout, formato, horário) e pede à IA um **brief curto**
+   do que funciona melhor/pior. Guarda em `learnings`.
+2. Os geradores (`generate-mix/theme/ads`) leem esse aprendizado e o injetam nos
+   prompts (`performanceGuidance` em `api/_lib/prompts.js`), enviesando os
+   próximos criativos para o que performa — sem virar regra rígida.
+
+## Agendador autopilot (gera + renderiza + posta sozinho)
+
+Na **Agenda** você programa posts. No horário, o cron `api/run-scheduler`:
+
+1. **gera** o conteúdo com IA (já com o aprendizado);
+2. **renderiza a arte no servidor** com Chromium headless (`api/_lib/render.js`
+   abre a rota `/render.html`, que monta o **mesmo** `CreativeCanvas` em tamanho
+   real, e tira o screenshot) — a arte sai idêntica à do Estúdio, sem precisar de
+   nenhuma aba aberta;
+3. **publica** no Instagram (feed ou carrossel), o que já registra em `posts` e
+   realimenta o aprendizado.
+
+A **recomendação** de quantidade/horário (`api/schedule-recommend`) usa os seus
+melhores horários reais quando há dados, ou um padrão (12h e 19h) enquanto não há.
+
+> ℹ️ **Cron na Vercel:** no plano **Hobby** os crons rodam no máximo **1×/dia**.
+> Para horários finos (ex.: de hora em hora), use **Vercel Pro** ou um pinger
+> externo (ex.: cron-job.org) batendo em `/api/run-scheduler` com o header
+> `Authorization: Bearer <CRON_SECRET>`. O runner processa **todos** os jobs
+> vencidos a cada chamada, então publica na passada do cron (não no minuto exato).
+
+### Variáveis extras (servidor)
+
+| Variável           | O que é                                                        |
+| ------------------ | -------------------------------------------------------------- |
+| `SUPABASE_URL`     | URL do projeto Supabase (bucket + banco `posts`)               |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (secreta) — só no servidor           |
+| `IG_USER_ID`, `IG_ACCESS_TOKEN` | Credenciais do Instagram (Graph API)              |
+| `PUBLIC_BASE_URL`  | URL pública do deploy (onde `/render.html` é servido)          |
+| `CRON_SECRET`      | Protege os endpoints de cron (sync, learnings, scheduler)      |
+
+Rode o `supabase/schema.sql` (atualizado) no SQL Editor para criar/migrar as
+colunas de `posts` e as tabelas `schedule` e `learnings`.

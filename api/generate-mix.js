@@ -2,40 +2,7 @@ import { chat, extractJsonArray, preflight, readJson } from './_lib/openai.js'
 import { mixPrompt } from './_lib/prompts.js'
 import { getClient } from './_lib/clients.js'
 import { safeLearnings } from './_lib/supabase.js'
-
-// Direcionamentos criativos sorteados a cada leva. Servem pra IA não convergir
-// sempre no mesmo tipo de texto — cada geração parte de ângulos diferentes.
-// Estes são os PUBLICITÁRIOS (padrão). Clientes editoriais definem os seus em
-// `client.directions` — vários daqui ("custo de não agir", "objeção de quem
-// hesita", "exagero") seriam impróprios pra um serviço de saúde.
-const DIRECTIONS = [
-  'foque numa dor concreta e cotidiana do público',
-  'traga um benefício específico e mensurável',
-  'comece com uma pergunta provocativa',
-  'quebre um mito comum sobre o tema',
-  'conte um micro-cenário do dia a dia',
-  'use um contraste antes/depois',
-  'traga um dado ou número que surpreenda',
-  'fale direto com quem está adiando resolver isso',
-  'destaque um recurso pouco óbvio da marca',
-  'use humor leve e uma pitada de exagero',
-  'aposte numa frase de efeito curta e memorável',
-  'responda a uma objeção típica de quem hesita',
-  'mostre o custo de NÃO agir',
-  'celebre uma pequena vitória do público',
-]
-
-/** Sorteia `k` direcionamentos distintos do repertório do cliente. */
-function sampleDirections(k, client) {
-  const source = (client && client.directions) || DIRECTIONS
-  const out = []
-  const pool = source.slice()
-  for (let i = 0; i < k && pool.length; i++) {
-    const idx = Math.floor(Math.random() * pool.length)
-    out.push(pool.splice(idx, 1)[0])
-  }
-  return out
-}
+import { DIRECTIONS, sampleDirections } from './_lib/directions.js'
 
 export default async function handler(req, res) {
   if (preflight(req, res)) return
