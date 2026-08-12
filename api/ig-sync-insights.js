@@ -1,5 +1,6 @@
 import { fetchMetrics } from './_lib/ig.js'
 import { listPublishedPosts, updatePostMetrics } from './_lib/supabase.js'
+import { cronGuard } from './_lib/cron.js'
 
 // Atualiza as métricas de desempenho (likes, alcance, salvos…) dos posts
 // publicados. Pode ser chamado de duas formas:
@@ -14,6 +15,7 @@ export default async function handler(req, res) {
     res.status(204).end()
     return
   }
+  if (cronGuard(req, res)) return
   try {
     const posts = await listPublishedPosts(50)
     let ok = 0

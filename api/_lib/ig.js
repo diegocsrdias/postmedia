@@ -106,10 +106,12 @@ async function mediaPublish(userId, creationId, token, tries = 4) {
 }
 
 /** Registra uma publicação em `posts` sem derrubar o fluxo se o DB falhar. */
-async function logPost({ published, permalink, mediaUrl, caption, meta, format }) {
+async function logPost({ published, permalink, mediaUrl, caption, meta, format, mediaKind }) {
   try {
     const row = await insertPost({
       client: String(meta.client || 'post'),
+      status: 'published',
+      media_kind: mediaKind || null,
       ig_media_id: published.id,
       permalink: permalink || null,
       media_url: mediaUrl || null,
@@ -178,6 +180,7 @@ export async function publishImage({ imageDataUrl, caption, meta = {} }) {
     caption,
     meta,
     format: meta.format || 'feed',
+    mediaKind: 'image',
   })
 
   return { id: published.id, permalink, mediaUrl, postId }
@@ -237,6 +240,7 @@ export async function publishVideo({ videoUrl, caption, target, coverUrl, trial 
     caption: mediaType === 'REELS' ? caption : null,
     meta,
     format: trial ? 'trial_reel' : target,
+    mediaKind: 'video',
   })
 
   return { id: published.id, permalink, postId }
@@ -294,6 +298,7 @@ export async function publishCarousel({ imageUrls, caption, meta = {} }) {
     caption,
     meta,
     format: 'carousel',
+    mediaKind: 'carousel',
   })
 
   return { id: published.id, permalink, postId }

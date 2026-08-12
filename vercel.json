@@ -9,6 +9,10 @@
     {
       "path": "/api/ig-sync-insights",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/build-learnings",
+      "schedule": "15 9 * * *"
     }
   ]
 }

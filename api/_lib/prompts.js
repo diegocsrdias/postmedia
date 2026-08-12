@@ -1,6 +1,26 @@
 // Prompts de IA (rodam no servidor). Parametrizados por cliente (ver ./clients.js).
 
 import { isEditorial } from './clients.js'
+import { ANGLE_LABELS, LAYOUT_LABELS } from './labels.js'
+
+/**
+ * Bloco de DIREÇÃO POR DESEMPENHO, anexado aos prompts de geração. Traduz a
+ * memória de aprendizado (ver api/build-learnings.js) em orientações concretas
+ * para a IA priorizar o que vem funcionando nesta conta. Vazio quando ainda não
+ * há aprendizado — aí a geração se comporta como antes.
+ */
+export function performanceGuidance(learnings) {
+  if (!learnings) return ''
+  const stats = learnings.stats || {}
+  const topAngles = (stats.byAngle || []).slice(0, 3).map((r) => ANGLE_LABELS[r.key] || r.key)
+  const topLayouts = (stats.byLayout || []).slice(0, 3).map((r) => LAYOUT_LABELS[r.key] || r.key)
+  const parts = ['\n\nAPRENDIZADO DE DESEMPENHO DESTA CONTA (use para orientar as escolhas, sem repetir fórmula):']
+  if (learnings.brief) parts.push('- Panorama: ' + learnings.brief)
+  if (topAngles.length) parts.push('- Tende a performar melhor com estes ângulos: ' + topAngles.join(', ') + '.')
+  if (topLayouts.length) parts.push('- E com estes layouts: ' + topLayouts.join(', ') + '. Favoreça-os quando fizer sentido para o conteúdo.')
+  parts.push('- Não sacrifique a qualidade nem a variedade só para seguir isto: é um viés, não uma regra rígida.')
+  return parts.join('\n')
+}
 
 /** Formata as regras de escrita específicas do cliente (se houver) pro system prompt. */
 function guardrails(client) {
@@ -45,7 +65,7 @@ function brandContext(client) {
   )
 }
 
-export function adsPrompt(n, existingHeadlines, client) {
+export function adsPrompt(n, existingHeadlines, client, learnings) {
   const editorial = isEditorial(client)
   const system = persona('redator publicitário', client) + brandContext(client)
   // No modo editorial o layout "ad" continua existindo (é útil pra apresentar um
@@ -79,7 +99,8 @@ export function adsPrompt(n, existingHeadlines, client) {
     ') }, "caption": "legenda 2-4 linhas (emoji só se combinar com o tom da marca) e CTA pro link na bio", "hashtags": "5 hashtags incluindo ' +
     client.hashtag +
     '", "vcap": "frase curta pra tela do vídeo" }\n\n' +
-    'headline+highlight devem formar UMA frase fluida. PT-BR. Responda SOMENTE com um array JSON válido, sem crases nem texto extra.'
+    'headline+highlight devem formar UMA frase fluida. PT-BR. Responda SOMENTE com um array JSON válido, sem crases nem texto extra.' +
+    performanceGuidance(learnings)
   return { system, user }
 }
 
@@ -137,7 +158,7 @@ function outputContract(client) {
   )
 }
 
-export function themePrompt(n, theme, client) {
+export function themePrompt(n, theme, client, learnings) {
   const editorial = isEditorial(client)
   const system = brandSystem('redator de social media', client)
   // Newsjacking (surfar tema em alta pra vender) é impróprio pra saúde mental:
@@ -159,7 +180,8 @@ export function themePrompt(n, theme, client) {
     brief +
     layoutContract(client) +
     'Regras: varie os layouts entre os itens; textos MUITO curtos (line1/line2/headline/title até ~28 caracteres pra caber na tela); PT-BR; nada ofensivo.\n\n' +
-    outputContract(client)
+    outputContract(client) +
+    performanceGuidance(learnings)
   return { system, user }
 }
 
@@ -169,7 +191,7 @@ export function themePrompt(n, theme, client) {
  * (ver generate-mix.js) — pra que cada chamada explore ângulos/ganchos
  * diferentes em vez de convergir sempre no mesmo estilo de texto.
  */
-export function mixPrompt(n, client, directions, avoid) {
+export function mixPrompt(n, client, directions, avoid, learnings) {
   const editorial = isEditorial(client)
   const system = brandSystem('redator de social media', client)
   const dir = directions && directions.length ? directions.join('; ') : ''
@@ -203,6 +225,7 @@ export function mixPrompt(n, client, directions, avoid) {
     layoutContract(client) +
     rules +
     outputContract(client) +
+    performanceGuidance(learnings) +
     '\n\nLembrete final: o array deve conter ' +
     n +
     ' objetos.'

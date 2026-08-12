@@ -1,6 +1,7 @@
 import { chat, extractJsonArray, preflight, readJson } from './_lib/openai.js'
 import { mixPrompt } from './_lib/prompts.js'
 import { getClient } from './_lib/clients.js'
+import { safeLearnings } from './_lib/supabase.js'
 
 // Direcionamentos criativos sorteados a cada leva. Servem pra IA não convergir
 // sempre no mesmo tipo de texto — cada geração parte de ângulos diferentes.
@@ -45,7 +46,8 @@ export default async function handler(req, res) {
     // um direcionamento por item (com teto), mais um sorteado extra pra variar
     const pool = client.directions || DIRECTIONS
     const directions = sampleDirections(Math.min(count + 1, pool.length), client)
-    const { system, user } = mixPrompt(count, client, directions, String(existing || ''))
+    const learnings = await safeLearnings(clientId || client.id)
+    const { system, user } = mixPrompt(count, client, directions, String(existing || ''), learnings)
     // temperature alta + presence/frequency penalty pra fugir da repetição
     const raw = await chat({
       system,

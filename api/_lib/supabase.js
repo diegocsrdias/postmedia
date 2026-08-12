@@ -129,6 +129,19 @@ export async function getLearnings(client) {
   return data || null
 }
 
+/**
+ * Igual a getLearnings, mas nunca lança: devolve null em qualquer erro (tabela
+ * ausente, sem config, etc.). Usado nos geradores, onde a falta de aprendizado
+ * não pode derrubar a geração.
+ */
+export async function safeLearnings(client) {
+  try {
+    return await getLearnings(client)
+  } catch {
+    return null
+  }
+}
+
 /** Grava/atualiza a memória de aprendizado de um cliente. */
 export async function upsertLearnings(client, brief, stats) {
   const sb = supabase()
