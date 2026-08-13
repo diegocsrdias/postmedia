@@ -19,7 +19,7 @@ import { captureJpeg, captureJpegBlob, downloadImage, recordReels } from '../lib
 import type { Creative, CreativeFields, Filter, Format } from '../types'
 import type { ImageMode } from '../lib/api'
 import { RADIUS, UI, monoLabel } from '../ui/theme'
-import { Badge, Button, Card, LoadingOverlay, SectionHeader, SegmentedControl, Toast, useToast } from '../ui/components'
+import { Badge, Button, Card, HighlightCard, LoadingOverlay, SectionHeader, SegmentedControl, Toast, useToast } from '../ui/components'
 
 /** Converte um erro de chamada de IA numa mensagem curta para o toast. */
 function aiError(err: unknown): string {
@@ -477,7 +477,7 @@ export function StudioView({ client }: { client: ClientConfig }) {
   // ----- métricas de layout -----
   const innerW = 1080
   const innerH = square ? 1080 : 1920
-  const preferredFrameW = square ? 340 : 300
+  const preferredFrameW = square ? 400 : 330
   const maxFrameW = Math.max(220, Math.min(preferredFrameW, vw - (14 + 20) * 2))
   const frameW = maxFrameW
   const scale = frameW / innerW
@@ -487,58 +487,49 @@ export function StudioView({ client }: { client: ClientConfig }) {
   return (
     <div className="app-container app-pad" style={{ paddingTop: 26, paddingBottom: 96 }}>
       <SectionHeader
-        title="Criativos de hoje"
+        title="Estúdio"
         subtitle="A IA cria posts originais e publica direto no Instagram — feed, Story, Reels e carrossel."
         right={
-          <div className="stack-sm" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <Button size="lg" loading={generating} disabled={carouselPosting} onClick={() => generateAll()}>
-              {!generating && <span style={{ fontSize: 19 }}>🎲</span>}
-              {generating ? 'Criando…' : 'Gerar criativo com IA'}
-            </Button>
+          <div className="stack-sm" style={{ display: 'flex', gap: 8 }}>
             <Button
               variant="ghost"
-              loading={false}
               disabled={generating || carouselPosting}
               onClick={() => void doGenerateCarousel(3)}
               title="Gera 3 telas coesas para postar como um carrossel único no feed"
             >
-              📚 Gerar carrossel (3)
+              📚 Carrossel
+            </Button>
+            <Button size="lg" loading={generating} disabled={carouselPosting} onClick={() => generateAll()}>
+              {!generating && <span style={{ fontSize: 18 }}>🎲</span>}
+              {generating ? 'Criando…' : 'Gerar com IA'}
             </Button>
           </div>
         }
       />
 
       {/* tema / newsjacking */}
-      <Card style={{ marginTop: 4 }}>
+      <HighlightCard>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 17 }}>✨</span>
           <span style={{ fontWeight: 800, fontSize: 16, color: UI.ink, letterSpacing: '-0.02em' }}>
             Criar em cima de um tema em alta
           </span>
-          <Badge tone="dark" mono>
-            com IA
+          <Badge tone="accent" mono>
+            newsjacking
           </Badge>
         </div>
-        <p style={{ margin: '0 0 12px', fontSize: 13, color: UI.inkMuted, maxWidth: 640 }}>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: UI.inkMuted, maxWidth: 640, lineHeight: 1.5 }}>
           Digite um assunto do momento (copie do Google Trends ou da aba de buscas do TikTok) e a IA
           cria criativos amarrando o tema a {client.name}.
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
+            className="input"
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void generateWithTheme()}
             placeholder="Ex: Copa do Mundo, BBB, alta do dólar, novela das 9…"
-            style={{
-              flex: 1,
-              minWidth: 240,
-              border: '1px solid ' + UI.border,
-              background: '#fff',
-              borderRadius: 10,
-              padding: '12px 14px',
-              fontSize: 14,
-              color: UI.ink,
-            }}
+            style={{ flex: 1, minWidth: 240 }}
           />
           <Button loading={generating} onClick={() => void generateWithTheme()}>
             ✨ Gerar com esse tema
@@ -547,32 +538,15 @@ export function StudioView({ client }: { client: ClientConfig }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
           <span style={monoLabel()}>Quentes agora:</span>
           {client.themes.map((chip) => (
-            <button
-              key={chip.theme}
-              onClick={() => useChip(chip.theme)}
-              style={{
-                background: '#fff',
-                border: '1px solid ' + UI.border,
-                borderRadius: RADIUS.pill,
-                padding: '6px 13px',
-                fontSize: 13,
-                fontWeight: 600,
-                color: UI.ink,
-                cursor: 'pointer',
-              }}
-            >
+            <button key={chip.theme} className="chip" onClick={() => useChip(chip.theme)}>
               {chip.label}
             </button>
           ))}
         </div>
-        <p style={{ margin: '12px 0 0', fontSize: 11, color: UI.inkMuted2 }}>
-          💡 Trends mudam todo dia — confira o Google Trends / TikTok do dia e cole o assunto aqui pra
-          sempre pegar o hype fresco.
-        </p>
-      </Card>
+      </HighlightCard>
 
       {/* toolbar */}
-      <Card style={{ marginTop: 18 }} pad="14px 18px">
+      <Card style={{ marginTop: 16 }} pad="14px 18px">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px 26px', alignItems: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={monoLabel()}>Formato</span>
@@ -586,27 +560,18 @@ export function StudioView({ client }: { client: ClientConfig }) {
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={monoLabel()}>Tema</span>
+            <span style={monoLabel()}>Ângulo</span>
             <select
+              className="select"
               value={filter}
               onChange={(e) => {
                 const v = e.target.value as Filter
                 setFilter(v)
                 generateAll(v, count)
               }}
-              style={{
-                border: '1px solid ' + UI.border,
-                background: '#fff',
-                borderRadius: RADIUS.pill,
-                padding: '9px 16px',
-                fontSize: 14,
-                fontWeight: 600,
-                color: UI.ink,
-                cursor: 'pointer',
-                minWidth: 170,
-              }}
+              style={{ borderRadius: RADIUS.pill, fontWeight: 600, minWidth: 190, cursor: 'pointer' }}
             >
-              <option value="all">Todos os temas</option>
+              <option value="all">Todos os ângulos</option>
               {availableAngles.map((angle) => (
                 <option key={angle} value={angle}>
                   {ANGLE_LABELS[angle]}
@@ -622,8 +587,9 @@ export function StudioView({ client }: { client: ClientConfig }) {
       {carouselMode && (
         <div
           style={{
-            marginTop: 20,
-            background: UI.dark,
+            marginTop: 18,
+            background: 'linear-gradient(180deg, var(--surface-3), var(--surface))',
+            border: '1px solid var(--border-2)',
             color: UI.darkText,
             borderRadius: RADIUS.lg,
             padding: '14px 18px',
@@ -639,35 +605,35 @@ export function StudioView({ client }: { client: ClientConfig }) {
           </span>
           <div style={{ flex: 1 }} />
           <button
+            className="ui-btn"
             onClick={() => setCarouselMode(false)}
             disabled={carouselPosting}
             style={{
-              background: 'none',
+              background: 'var(--surface-2)',
               color: UI.darkTextMuted,
               border: '1px solid ' + UI.darkBorder,
               borderRadius: RADIUS.pill,
               padding: '9px 16px',
               fontWeight: 700,
               fontSize: 13,
-              cursor: carouselPosting ? 'default' : 'pointer',
+              cursor: 'pointer',
             }}
           >
             ✕ Sair
           </button>
           <button
+            className="ui-btn"
             onClick={() => void doPublishCarousel()}
             disabled={carouselPosting}
             style={{
-              background: carouselPosting
-                ? UI.inkMuted2
-                : 'linear-gradient(90deg,#833AB4 0%,#E1306C 50%,#F77737 100%)',
+              background: 'linear-gradient(95deg,#833AB4 0%,#E1306C 50%,#F77737 100%)',
               color: '#fff',
               border: 'none',
               borderRadius: RADIUS.pill,
               padding: '10px 20px',
               fontWeight: 800,
               fontSize: 14,
-              cursor: carouselPosting ? 'default' : 'pointer',
+              cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
@@ -679,7 +645,7 @@ export function StudioView({ client }: { client: ClientConfig }) {
       )}
 
       {/* grid */}
-      <div className="creatives-grid" style={{ marginTop: 24 }}>
+      <div className="creatives-grid" style={{ marginTop: 22 }}>
         {creatives.map((c, i) => (
           <CreativeCard
             key={c._key + '-' + i}

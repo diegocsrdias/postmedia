@@ -5,16 +5,16 @@ import { StudioView } from './views/StudioView'
 import { HistoryView } from './views/HistoryView'
 import { ScheduleView } from './views/ScheduleView'
 import { PerformanceView } from './views/PerformanceView'
-import { FONT, RADIUS, UI } from './ui/theme'
+import { FONT, UI } from './ui/theme'
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
 /** As telas do app. O id vira o hash da URL (#estudio, #historico…). */
 const VIEWS = [
-  { id: 'estudio', label: 'Estúdio', icon: '🎨' },
-  { id: 'historico', label: 'Histórico', icon: '🗂️' },
-  { id: 'agenda', label: 'Agenda', icon: '📅' },
-  { id: 'desempenho', label: 'Desempenho', icon: '📊' },
+  { id: 'estudio', label: 'Estúdio', icon: '🎨', blurb: 'Criar & publicar' },
+  { id: 'historico', label: 'Histórico', icon: '🗂️', blurb: 'Postados & baixados' },
+  { id: 'agenda', label: 'Agenda', icon: '📅', blurb: 'Piloto automático' },
+  { id: 'desempenho', label: 'Desempenho', icon: '📊', blurb: 'O que funciona' },
 ] as const
 
 type ViewId = (typeof VIEWS)[number]['id']
@@ -57,112 +57,110 @@ export default function App() {
     return d.getDate() + ' de ' + MONTHS[d.getMonth()] + '. ' + d.getFullYear()
   }, [])
 
+  const active = VIEWS.find((v) => v.id === view)!
+
   return (
-    <div style={{ minHeight: '100vh', background: UI.bg }}>
-      {/* ===== Top bar ===== */}
-      <header
-        className="app-header"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 30,
-          background: UI.dark,
-          color: UI.darkText,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          boxShadow: '0 4px 12px rgba(0,0,0,.18)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          <img
-            src={client.images.logo}
-            alt={client.name}
-            style={{ width: 40, height: 40, objectFit: 'contain', flex: 'none' }}
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.05, minWidth: 0 }}>
-            <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.02em' }}>
-              Gerador de Criativos
-            </span>
-            <span
+    <div className="app-layout">
+      {/* ===== Sidebar (desktop) ===== */}
+      <aside className="sidebar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 8px 16px' }}>
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 11,
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              display: 'grid',
+              placeItems: 'center',
+              flex: 'none',
+            }}
+          >
+            <img src={client.images.logo} alt={client.name} style={{ width: 26, height: 26, objectFit: 'contain' }} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: 14.5, letterSpacing: '-0.02em', color: UI.ink }}>Criativos</div>
+            <div
               style={{
                 fontFamily: FONT.mono,
-                fontSize: 10,
-                letterSpacing: '0.16em',
+                fontSize: 9,
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
-                color: UI.darkTextMuted2,
+                color: UI.inkMuted2,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
               }}
             >
               {client.name}
-            </span>
+            </div>
           </div>
         </div>
 
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              className={'nav-item' + (view === v.id ? ' active' : '')}
+              onClick={() => setView(v.id)}
+            >
+              <span className="nav-ico">{v.icon}</span>
+              <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                <span>{v.label}</span>
+                <span style={{ fontSize: 11, fontWeight: 500, color: UI.inkMuted2 }}>{v.blurb}</span>
+              </span>
+            </button>
+          ))}
+        </nav>
+
         <div style={{ flex: 1 }} />
 
-        <select
-          value={clientId}
-          onChange={(e) => setClientId(e.target.value as ClientId)}
-          aria-label="Cliente"
-          style={{
-            border: '1px solid rgba(255,255,255,0.14)',
-            background: UI.darkAlt,
-            color: UI.darkText,
-            borderRadius: RADIUS.pill,
-            padding: '9px 14px',
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          {CLIENT_LIST.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
+        <ClientPicker clientId={clientId} onChange={setClientId} />
+      </aside>
 
-        <span
-          className="hide-mobile"
-          style={{ fontFamily: FONT.mono, fontSize: 12, color: UI.darkTextMuted, letterSpacing: '0.08em' }}
-        >
-          {todayLabel}
-        </span>
-      </header>
+      {/* ===== Área principal ===== */}
+      <div className="app-main">
+        {/* topbar */}
+        <header className="app-topbar">
+          {/* marca compacta (só aparece no mobile, onde a sidebar some) */}
+          <div className="show-mobile" style={{ display: 'none', alignItems: 'center', gap: 9 }}>
+            <img src={client.images.logo} alt={client.name} style={{ width: 26, height: 26, objectFit: 'contain' }} />
+          </div>
 
-      {/* ===== Nav (tabs no desktop) ===== */}
-      <nav
-        className="app-nav hide-mobile"
-        style={{
-          position: 'sticky',
-          top: 72,
-          zIndex: 20,
-          background: UI.surface,
-          borderBottom: '1px solid ' + UI.border,
-        }}
-      >
-        <div className="app-container app-pad" style={{ display: 'flex', gap: 4 }}>
-          {VIEWS.map((v) => (
-            <NavTab key={v.id} active={view === v.id} onClick={() => setView(v.id)} icon={v.icon} label={v.label} />
-          ))}
-        </div>
-      </nav>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1, minWidth: 0 }}>
+            <span style={{ fontWeight: 800, fontSize: 15.5, letterSpacing: '-0.02em', color: UI.ink }}>
+              {active.icon} {active.label}
+            </span>
+          </div>
 
-      {/* ===== Conteúdo ===== */}
-      <main>
-        {view === 'estudio' && <StudioView client={client} />}
-        {view === 'historico' && <HistoryView client={client} />}
-        {view === 'agenda' && <ScheduleView client={client} />}
-        {view === 'desempenho' && <PerformanceView client={client} />}
-      </main>
+          <div style={{ flex: 1 }} />
+
+          <span
+            className="hide-mobile"
+            style={{ fontFamily: FONT.mono, fontSize: 12, color: UI.inkMuted2, letterSpacing: '0.06em' }}
+          >
+            {todayLabel}
+          </span>
+
+          {/* seletor de cliente no topo do mobile */}
+          <div className="show-mobile" style={{ display: 'none' }}>
+            <ClientPicker clientId={clientId} onChange={setClientId} compact />
+          </div>
+        </header>
+
+        {/* conteúdo */}
+        <main>
+          {view === 'estudio' && <StudioView client={client} />}
+          {view === 'historico' && <HistoryView client={client} />}
+          {view === 'agenda' && <ScheduleView client={client} />}
+          {view === 'desempenho' && <PerformanceView client={client} />}
+        </main>
+      </div>
 
       {/* ===== Bottom nav (mobile) ===== */}
       <nav className="bottom-nav show-mobile">
         {VIEWS.map((v) => {
-          const active = view === v.id
+          const on = view === v.id
           return (
             <button
               key={v.id}
@@ -175,13 +173,13 @@ export default function App() {
                 gap: 3,
                 background: 'none',
                 border: 'none',
-                padding: '8px 4px',
+                padding: '9px 4px 7px',
                 cursor: 'pointer',
-                color: active ? UI.ink : UI.inkMuted2,
+                color: on ? 'var(--accent-hover)' : UI.inkMuted2,
               }}
             >
-              <span style={{ fontSize: 20, opacity: active ? 1 : 0.7 }}>{v.icon}</span>
-              <span style={{ fontSize: 10, fontWeight: active ? 800 : 600 }}>{v.label}</span>
+              <span style={{ fontSize: 19, opacity: on ? 1 : 0.75 }}>{v.icon}</span>
+              <span style={{ fontSize: 10, fontWeight: on ? 800 : 600 }}>{v.label}</span>
             </button>
           )
         })}
@@ -190,37 +188,90 @@ export default function App() {
   )
 }
 
-function NavTab({
-  active,
-  onClick,
-  icon,
-  label,
+/** Seletor de cliente estilizado (substitui o <select> cru). */
+function ClientPicker({
+  clientId,
+  onChange,
+  compact = false,
 }: {
-  active: boolean
-  onClick: () => void
-  icon: string
-  label: string
+  clientId: ClientId
+  onChange: (id: ClientId) => void
+  compact?: boolean
 }) {
+  const [open, setOpen] = useState(false)
+  const current = getClient(clientId)
+
   return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        background: 'none',
-        border: 'none',
-        borderBottom: '2px solid ' + (active ? UI.ink : 'transparent'),
-        padding: '14px 16px',
-        fontSize: 14,
-        fontWeight: active ? 800 : 600,
-        color: active ? UI.ink : UI.inkMuted,
-        cursor: 'pointer',
-        marginBottom: -1,
-      }}
-    >
-      <span style={{ fontSize: 16 }}>{icon}</span>
-      {label}
-    </button>
+    <div style={{ position: 'relative' }}>
+      <button
+        className="ui-btn"
+        onClick={() => setOpen((o) => !o)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 9,
+          width: compact ? undefined : '100%',
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: compact ? '8px 10px' : '10px 12px',
+          cursor: 'pointer',
+          color: UI.ink,
+        }}
+      >
+        <img src={current.images.logo} alt="" style={{ width: 22, height: 22, objectFit: 'contain', flex: 'none' }} />
+        {!compact && (
+          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, textAlign: 'left', minWidth: 0 }}>
+            <span style={{ fontFamily: FONT.mono, fontSize: 8.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: UI.inkMuted2 }}>
+              Cliente
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {current.name}
+            </span>
+          </span>
+        )}
+        <span style={{ marginLeft: 'auto', fontSize: 10, color: UI.inkMuted2 }}>▾</span>
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: compact ? undefined : 'calc(100% + 6px)',
+            top: compact ? 'calc(100% + 6px)' : undefined,
+            right: compact ? 0 : undefined,
+            left: compact ? undefined : 0,
+            width: compact ? 200 : '100%',
+            background: 'var(--surface-3)',
+            border: '1px solid var(--border-2)',
+            borderRadius: 12,
+            boxShadow: 'var(--sh-pop)',
+            padding: 5,
+            zIndex: 50,
+          }}
+        >
+          {CLIENT_LIST.map((item) => {
+            const on = item.id === clientId
+            return (
+              <button
+                key={item.id}
+                className="nav-item"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  onChange(item.id as ClientId)
+                  setOpen(false)
+                }}
+                style={{ background: on ? 'var(--accent-soft)' : undefined, color: UI.ink }}
+              >
+                <img src={getClient(item.id as ClientId).images.logo} alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} />
+                {item.name}
+                {on && <span style={{ marginLeft: 'auto', color: 'var(--accent-hover)' }}>✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }

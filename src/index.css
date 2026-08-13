@@ -1,3 +1,73 @@
+/* ============================================================
+   Gerador de Criativos — casca da ferramenta (dark premium).
+
+   Tokens em CSS variables (dark-first). Os componentes e telas leem
+   `var(--…)` via os helpers de src/ui/theme.ts, então o tema inteiro é
+   controlado daqui. NÃO confundir com as cores de MARCA (src/clients/*),
+   que só valem para a arte gerada (CreativeCanvas) e não são tocadas aqui.
+   ============================================================ */
+
+:root {
+  /* superfícies (do fundo da página ao painel mais elevado) */
+  --bg: #0d0e12;
+  --bg-grad: radial-gradient(1200px 600px at 85% -10%, rgba(139, 108, 255, 0.1), transparent 60%),
+    radial-gradient(900px 500px at -5% 0%, rgba(80, 120, 255, 0.06), transparent 55%);
+  --surface: #16181f; /* cartão padrão */
+  --surface-2: #1e212b; /* inset: segmented, thumbs, campos */
+  --surface-3: #262a35; /* painel elevado / destaque */
+  --surface-hover: #20242e;
+
+  /* bordas */
+  --border: #282c37;
+  --border-2: #363b48;
+  --border-strong: #454b5a;
+
+  /* texto */
+  --text: #f3f4f7;
+  --text-muted: #a6abb8;
+  --text-dim: #71778a;
+
+  /* acento */
+  --accent: #8b6cff;
+  --accent-hover: #9d81ff;
+  --accent-soft: rgba(139, 108, 255, 0.16);
+  --accent-text: #ffffff;
+
+  /* semânticas */
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.14);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.14);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+
+  /* Instagram (botões de publicar) */
+  --ig: linear-gradient(95deg, #833ab4 0%, #e1306c 50%, #f77737 100%);
+
+  /* raios */
+  --r-sm: 8px;
+  --r-md: 11px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-pill: 999px;
+
+  /* sombras (mais profundas no dark) */
+  --sh-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sh-raised: 0 10px 30px -8px rgba(0, 0, 0, 0.6);
+  --sh-pop: 0 20px 50px -12px rgba(0, 0, 0, 0.7);
+
+  /* foco acessível */
+  --ring: 0 0 0 3px var(--accent-soft);
+
+  /* fontes */
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* métricas de layout */
+  --sidebar-w: 244px;
+  --header-h: 60px;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -5,96 +75,293 @@
 }
 
 html {
-  /* evita zoom-out/rolagem horizontal acidental no mobile */
   -webkit-text-size-adjust: 100%;
 }
 
 body {
-  font-family:
-    'Inter',
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
-  background: #f4f4f5;
+  font-family: var(--font-body);
+  background: var(--bg);
+  background-image: var(--bg-grad);
+  background-attachment: fixed;
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overflow-x: hidden;
 }
 
-button {
+button,
+input,
+textarea,
+select {
   font-family: inherit;
+  color: inherit;
 }
 
-/* Impede que qualquer imagem/preview estoure a largura no mobile */
 img {
   max-width: 100%;
 }
 
+::selection {
+  background: var(--accent-soft);
+}
+
+/* rolagem escura coerente */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+  background-clip: padding-box;
+}
+
+/* foco visível padrão */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
 /* ============================================================
-   Layout responsivo
-   Containers recebem estas classes no App.tsx.
+   Shell: sidebar (desktop) + main; bottom-nav (mobile)
    ============================================================ */
 
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  width: var(--sidebar-w);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px 14px;
+  background: rgba(11, 12, 16, 0.72);
+  border-right: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 30;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 26px;
+  background: rgba(13, 14, 18, 0.72);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
 .app-container {
-  max-width: 1240px;
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
-/* Header */
-.app-header {
-  padding: 16px 28px;
-}
-
-/* Seções de controle e grid usam padding lateral generoso no desktop */
 .app-pad {
-  padding-left: 28px;
-  padding-right: 28px;
+  padding-left: 26px;
+  padding-right: 26px;
 }
 
-/* Navegação por abas (desktop) */
-.app-nav {
-  overflow-x: auto;
-}
-
-/* Bottom nav (mobile) — escondida no desktop */
-.bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 40;
+/* item de navegação da sidebar */
+.nav-item {
   display: flex;
-  background: #ffffff;
-  border-top: 1px solid #e4e4e7;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
-  padding-bottom: env(safe-area-inset-bottom);
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.14s, color 0.14s;
+}
+.nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.nav-item.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.nav-item.active .nav-ico {
+  filter: none;
+}
+.nav-ico {
+  font-size: 17px;
+  width: 22px;
+  text-align: center;
+  flex: none;
 }
 
-.show-mobile {
-  display: none;
+/* ============================================================
+   Utilitários de superfície e controles
+   ============================================================ */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-card);
 }
 
-/* Grid de criativos */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 7px 13px;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.14s, color 0.14s, border-color 0.14s;
+}
+.chip:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--border-2);
+}
+.chip.on {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 11px 13px;
+  font-size: 14px;
+  color: var(--text);
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+.textarea {
+  line-height: 1.45;
+  resize: vertical;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-dim);
+}
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+  outline: none;
+}
+
+/* botão com feedback (a cor vem do inline-style; aqui só a interação) */
+.ui-btn {
+  transition: filter 0.14s, transform 0.05s, opacity 0.14s, background 0.14s;
+}
+.ui-btn:not(:disabled):hover {
+  filter: brightness(1.09);
+}
+.ui-btn:not(:disabled):active {
+  transform: translateY(1px);
+}
+.ui-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* linha clicável (cards de histórico, jobs) */
+.pressable {
+  transition: transform 0.12s, border-color 0.14s, box-shadow 0.14s;
+  cursor: pointer;
+}
+.pressable:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--sh-raised);
+  transform: translateY(-2px);
+}
+
+/* ============================================================
+   Grids das telas
+   ============================================================ */
+
 .creatives-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 26px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
 }
 
-/* Barra de ferramentas (formato/tema/quantidade) */
-.toolbar {
+/* cartão de trabalho do Estúdio: preview + editor lado a lado (empilha em telas estreitas) */
+.card-work {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px 26px;
-  align-items: center;
+  align-items: stretch;
+}
+.card-work .work-preview {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  padding: 22px;
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
+}
+.card-work .work-editor {
+  flex: 1 1 320px;
+  min-width: 0;
+  padding: 20px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+@media (max-width: 720px) {
+  .card-work .work-preview {
+    flex: 1 1 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
 }
 
-/* Galeria do histórico */
 .history-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 16px;
 }
-
 @media (max-width: 480px) {
   .history-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -102,53 +369,68 @@ img {
   }
 }
 
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+/* ============================================================
+   Bottom nav (mobile)
+   ============================================================ */
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: none;
+  background: rgba(13, 14, 18, 0.92);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.hide-mobile {
+  display: initial;
+}
+.show-mobile {
+  display: none;
+}
+
 /* ---- Tablet / telas médias ---- */
-@media (max-width: 720px) {
-  .app-header {
-    padding: 14px 16px;
+@media (max-width: 860px) {
+  .sidebar {
+    display: none;
+  }
+  .bottom-nav {
+    display: flex;
+  }
+  .app-topbar {
+    padding: 0 16px;
   }
   .app-pad {
     padding-left: 16px;
     padding-right: 16px;
   }
-  .creatives-grid {
-    /* uma coluna que nunca estoura a viewport */
-    grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
-  }
-  .toolbar {
-    gap: 14px 18px;
-  }
-  /* cada grupo da toolbar ocupa a linha inteira e alinha à esquerda */
-  .toolbar > * {
-    flex: 1 1 100%;
-  }
-}
-
-/* ---- Alterna nav de topo (desktop) x bottom-nav (mobile) ---- */
-@media (max-width: 720px) {
   .hide-mobile {
     display: none !important;
   }
   .show-mobile {
     display: flex !important;
   }
-  /* espaço pro conteúdo não ficar atrás da bottom-nav */
   main {
-    padding-bottom: 64px;
+    padding-bottom: 68px;
   }
 }
 
-/* ---- Celular pequeno ---- */
 @media (max-width: 420px) {
-  .app-header {
-    padding: 12px 14px;
-  }
   .app-pad {
-    padding-left: 14px;
-    padding-right: 14px;
+    padding-left: 13px;
+    padding-right: 13px;
   }
-  /* botões de ação empilham em vez de espremer */
   .stack-sm {
     flex-direction: column !important;
   }
@@ -158,7 +440,7 @@ img {
 }
 
 /* ============================================================
-   Indicadores de carregamento (spinner + overlays)
+   Loading: spinner, overlays, skeleton
    ============================================================ */
 
 @keyframes spin {
@@ -166,7 +448,6 @@ img {
     transform: rotate(360deg);
   }
 }
-
 @keyframes overlayIn {
   from {
     opacity: 0;
@@ -175,19 +456,47 @@ img {
     opacity: 1;
   }
 }
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 
-/* Spinner circular reutilizável. A cor da borda superior é herdada de `color`. */
 .spinner {
   display: inline-block;
   border-radius: 50%;
   border-style: solid;
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.22);
   border-top-color: currentColor;
   animation: spin 0.7s linear infinite;
   flex: none;
 }
 
-/* Overlay que cobre a tela inteira enquanto a IA trabalha. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  animation: shimmer 1.3s infinite;
+}
+
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -199,13 +508,12 @@ img {
   gap: 20px;
   padding: 24px;
   text-align: center;
-  background: rgba(9, 9, 11, 0.72);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgba(6, 7, 10, 0.78);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   animation: overlayIn 0.18s ease-out;
 }
 
-/* Overlay que cobre apenas o card cuja imagem está sendo gerada. */
 .card-loading-overlay {
   position: absolute;
   inset: 0;
@@ -216,23 +524,47 @@ img {
   justify-content: center;
   gap: 12px;
   text-align: center;
-  background: rgba(9, 9, 11, 0.55);
+  background: rgba(6, 7, 10, 0.62);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   animation: overlayIn 0.18s ease-out;
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
-/* Áreas roláveis horizontalmente (chips de tema) não empurram a página */
+/* modal (detalhe do histórico) */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(6, 7, 10, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: overlayIn 0.16s ease-out;
+}
+.modal-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-pop);
+  max-width: 860px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  animation: popIn 0.18s ease-out;
+}
+
+/* rolagem horizontal suave (chips) sem empurrar a página */
 .hscroll {
+  display: flex;
+  gap: 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  padding-bottom: 2px;
 }
 .hscroll::-webkit-scrollbar {
   height: 6px;
-}
-.hscroll::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
-  border-radius: 999px;
 }

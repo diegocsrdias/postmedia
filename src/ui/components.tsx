@@ -1,9 +1,9 @@
 /**
- * Componentes reutilizáveis da INTERFACE (a "casca" da ferramenta).
+ * Componentes reutilizáveis da INTERFACE (a "casca" da ferramenta, dark).
  *
- * Compõem a partir dos tokens de `./theme` — cores neutras, raios, sombras,
- * tipografia — para que as telas parem de repetir inline-styles gigantes.
- * Nada aqui tem cara de cliente: as cores de marca vivem em `src/clients/*`.
+ * Compõem a partir dos tokens de `./theme` (CSS variables) — cores, raios,
+ * sombras, tipografia. Nada aqui tem cara de cliente: as cores de marca vivem
+ * em `src/clients/*` e só valem para a arte gerada.
  */
 import {
   useCallback,
@@ -18,15 +18,23 @@ import { FONT, RADIUS, SHADOW, SPACE, UI } from './theme'
    Botão de ação
    ============================================================ */
 
-type BtnVariant = 'primary' | 'ghost' | 'accent' | 'danger'
+type BtnVariant = 'primary' | 'ghost' | 'accent' | 'danger' | 'subtle'
 type BtnSize = 'sm' | 'md' | 'lg'
 
 const BTN_PAD: Record<BtnSize, string> = {
   sm: '8px 14px',
   md: '11px 20px',
-  lg: '15px 28px',
+  lg: '14px 26px',
 }
-const BTN_FS: Record<BtnSize, number> = { sm: 13, md: 14, lg: 16 }
+const BTN_FS: Record<BtnSize, number> = { sm: 13, md: 14, lg: 15.5 }
+
+const BTN_PALETTE: Record<BtnVariant, CSSProperties> = {
+  primary: { background: UI.accent, color: UI.accentText },
+  accent: { background: UI.accent, color: UI.accentText },
+  ghost: { background: 'transparent', color: UI.ink, border: '1px solid var(--border-2)' },
+  subtle: { background: UI.surfaceAlt, color: UI.ink },
+  danger: { background: 'var(--danger-soft)', color: 'var(--danger)' },
+}
 
 export function Button({
   children,
@@ -51,12 +59,6 @@ export function Button({
   type?: 'button' | 'submit'
   full?: boolean
 }) {
-  const palette: Record<BtnVariant, CSSProperties> = {
-    primary: { background: UI.dark, color: UI.darkText },
-    accent: { background: UI.accent, color: UI.accentText },
-    ghost: { background: 'transparent', color: UI.ink, border: '1px solid ' + UI.border },
-    danger: { background: 'transparent', color: '#B91C1C', border: '1px solid #FCA5A5' },
-  }
   const isOff = disabled || loading
   return (
     <button
@@ -64,6 +66,7 @@ export function Button({
       onClick={onClick}
       disabled={isOff}
       title={title}
+      className="ui-btn"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -75,12 +78,10 @@ export function Button({
         fontSize: BTN_FS[size],
         fontWeight: 800,
         letterSpacing: '-0.01em',
-        cursor: isOff ? 'default' : 'pointer',
-        opacity: isOff ? 0.6 : 1,
-        transition: 'opacity .15s, transform .05s',
+        cursor: 'pointer',
         width: full ? '100%' : undefined,
-        boxShadow: variant === 'primary' && size === 'lg' ? SHADOW.raised : undefined,
-        ...palette[variant],
+        boxShadow: (variant === 'primary' || variant === 'accent') ? '0 6px 18px -6px var(--accent)' : undefined,
+        ...BTN_PALETTE[variant],
         ...style,
       }}
     >
@@ -112,15 +113,18 @@ export function Card({
   style,
   pad = SPACE.xl,
   className,
+  onClick,
 }: {
   children: ReactNode
   style?: CSSProperties
   pad?: number | string
   className?: string
+  onClick?: () => void
 }) {
   return (
     <div
       className={className}
+      onClick={onClick}
       style={{
         background: UI.surface,
         border: '1px solid ' + UI.border,
@@ -130,6 +134,45 @@ export function Card({
         ...style,
       }}
     >
+      {children}
+    </div>
+  )
+}
+
+/** Cartão de destaque (fundo elevado + faixa de acento) para blocos "IA". */
+export function HighlightCard({
+  children,
+  style,
+  pad = SPACE.xl,
+}: {
+  children: ReactNode
+  style?: CSSProperties
+  pad?: number | string
+}) {
+  return (
+    <div
+      style={{
+        position: 'relative',
+        background:
+          'linear-gradient(180deg, var(--surface-3), var(--surface))',
+        border: '1px solid var(--border-2)',
+        borderRadius: RADIUS.lg,
+        padding: pad,
+        boxShadow: SHADOW.card,
+        overflow: 'hidden',
+        ...style,
+      }}
+    >
+      <span
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 2,
+          background: 'linear-gradient(90deg, var(--accent), transparent)',
+        }}
+      />
       {children}
     </div>
   )
@@ -149,22 +192,23 @@ export function SegmentedControl<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div style={{ display: 'inline-flex', background: UI.surfaceAlt, borderRadius: RADIUS.pill, padding: 3 }}>
+    <div style={{ display: 'inline-flex', background: UI.surfaceAlt, borderRadius: RADIUS.pill, padding: 3, border: '1px solid var(--border)' }}>
       {options.map((o) => {
         const on = o.value === value
         return (
           <button
             key={o.value}
             onClick={() => onChange(o.value)}
+            className="ui-btn"
             style={{
               border: 'none',
               borderRadius: RADIUS.pill,
-              padding: '8px 16px',
+              padding: '8px 15px',
               fontSize: 13,
               fontWeight: 700,
               cursor: 'pointer',
-              background: on ? UI.dark : 'transparent',
-              color: on ? UI.darkText : UI.inkMuted,
+              background: on ? UI.accent : 'transparent',
+              color: on ? UI.accentText : UI.inkMuted,
               transition: 'background .15s, color .15s',
             }}
           >
@@ -183,12 +227,12 @@ export function SegmentedControl<T extends string>({
 type BadgeTone = 'neutral' | 'dark' | 'accent' | 'success' | 'warn' | 'danger'
 
 const BADGE_TONE: Record<BadgeTone, CSSProperties> = {
-  neutral: { background: UI.surfaceAlt, color: UI.inkMuted },
-  dark: { background: UI.dark, color: UI.darkText },
-  accent: { background: 'rgba(124,92,252,0.12)', color: UI.accent },
-  success: { background: 'rgba(21,128,61,0.12)', color: '#15803D' },
-  warn: { background: 'rgba(180,120,0,0.14)', color: '#B45309' },
-  danger: { background: 'rgba(185,28,28,0.12)', color: '#B91C1C' },
+  neutral: { background: UI.surfaceAlt, color: UI.inkMuted, border: '1px solid var(--border)' },
+  dark: { background: 'var(--surface-3)', color: UI.darkText, border: '1px solid var(--border-2)' },
+  accent: { background: 'var(--accent-soft)', color: 'var(--accent-hover)' },
+  success: { background: 'var(--success-soft)', color: 'var(--success)' },
+  warn: { background: 'var(--warn-soft)', color: 'var(--warn)' },
+  danger: { background: 'var(--danger-soft)', color: 'var(--danger)' },
 }
 
 export function Badge({
@@ -226,6 +270,66 @@ export function Badge({
 }
 
 /* ============================================================
+   Stat (KPI): rótulo + valor grande + hint/delta
+   ============================================================ */
+
+export function Stat({
+  label,
+  value,
+  hint,
+  icon,
+}: {
+  label: string
+  value: ReactNode
+  hint?: ReactNode
+  icon?: ReactNode
+}) {
+  return (
+    <div
+      style={{
+        background: UI.surface,
+        border: '1px solid ' + UI.border,
+        borderRadius: RADIUS.lg,
+        padding: '16px 18px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        boxShadow: SHADOW.card,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: UI.inkMuted2 }}>
+        {icon && <span style={{ fontSize: 14 }}>{icon}</span>}
+        <span style={{ fontFamily: FONT.mono, fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          {label}
+        </span>
+      </div>
+      <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', color: UI.ink, lineHeight: 1.1 }}>
+        {value}
+      </div>
+      {hint && <div style={{ fontSize: 12, color: UI.inkMuted }}>{hint}</div>}
+    </div>
+  )
+}
+
+/* ============================================================
+   Skeleton (placeholder de carregamento)
+   ============================================================ */
+
+export function Skeleton({
+  width = '100%',
+  height = 16,
+  radius = 8,
+  style,
+}: {
+  width?: number | string
+  height?: number | string
+  radius?: number
+  style?: CSSProperties
+}) {
+  return <div className="skeleton" style={{ width, height, borderRadius: radius, ...style }} />
+}
+
+/* ============================================================
    Estado vazio
    ============================================================ */
 
@@ -253,9 +357,22 @@ export function EmptyState({
         color: UI.inkMuted,
       }}
     >
-      <div style={{ fontSize: 40 }}>{icon}</div>
+      <div
+        style={{
+          fontSize: 30,
+          width: 66,
+          height: 66,
+          display: 'grid',
+          placeItems: 'center',
+          borderRadius: '50%',
+          background: UI.surfaceAlt,
+          border: '1px solid var(--border)',
+        }}
+      >
+        {icon}
+      </div>
       <div style={{ fontSize: 17, fontWeight: 800, color: UI.ink }}>{title}</div>
-      {hint && <div style={{ fontSize: 14, maxWidth: 420, lineHeight: 1.5 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 14, maxWidth: 440, lineHeight: 1.5 }}>{hint}</div>}
       {action}
     </div>
   )
@@ -268,11 +385,11 @@ export function EmptyState({
 export function LoadingOverlay({ message, hint }: { message: string; hint?: string }) {
   return (
     <div className="loading-overlay" role="status" aria-live="polite">
-      <Spinner size={52} color="#fff" />
+      <Spinner size={52} color="var(--accent)" />
       <div style={{ color: '#fff', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em' }}>
         {message}
       </div>
-      {hint && <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>{hint}</div>}
+      {hint && <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>{hint}</div>}
     </div>
   )
 }
@@ -290,14 +407,15 @@ export function Toast({ message }: { message: string }) {
         bottom: 88,
         left: '50%',
         transform: 'translateX(-50%)',
-        background: UI.dark,
+        background: 'var(--surface-3)',
         color: UI.darkText,
-        padding: '13px 24px',
+        border: '1px solid var(--border-2)',
+        padding: '13px 22px',
         borderRadius: RADIUS.pill,
         fontWeight: 600,
         fontSize: 14,
         boxShadow: SHADOW.toast,
-        zIndex: 60,
+        zIndex: 90,
         maxWidth: 'calc(100vw - 32px)',
         textAlign: 'center',
       }}
@@ -308,7 +426,7 @@ export function Toast({ message }: { message: string }) {
 }
 
 /** Estado de toast reutilizável: devolve a mensagem e um `flash(msg)`. */
-export function useToast(ms = 2000) {
+export function useToast(ms = 2400) {
   const [toast, setToast] = useState('')
   const timer = useRef<number | undefined>(undefined)
   const flash = useCallback(
@@ -347,11 +465,11 @@ export function SectionHeader({
       }}
     >
       <div style={{ minWidth: 240 }}>
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: UI.ink }}>
+        <h1 style={{ margin: 0, fontSize: 27, fontWeight: 800, letterSpacing: '-0.03em', color: UI.ink }}>
           {title}
         </h1>
         {subtitle && (
-          <p style={{ margin: '6px 0 0', color: UI.inkMuted, fontSize: 15, maxWidth: 620, lineHeight: 1.5 }}>
+          <p style={{ margin: '7px 0 0', color: UI.inkMuted, fontSize: 14.5, maxWidth: 640, lineHeight: 1.5 }}>
             {subtitle}
           </p>
         )}

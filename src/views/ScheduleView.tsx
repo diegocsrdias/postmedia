@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { ClientConfig } from '../clients'
 import {
   cancelSchedule,
@@ -8,8 +8,8 @@ import {
   listSchedule,
 } from '../lib/api'
 import type { ScheduleFormat, ScheduleJob, ScheduleRecommendation } from '../lib/api'
-import { RADIUS, UI } from '../ui/theme'
-import { Badge, Button, Card, EmptyState, SectionHeader, SegmentedControl, Spinner, Toast, useToast } from '../ui/components'
+import { FONT, UI } from '../ui/theme'
+import { Badge, Button, Card, EmptyState, HighlightCard, SectionHeader, SegmentedControl, Skeleton, Toast, useToast } from '../ui/components'
 
 /** Valor default do input datetime-local: daqui a 1h, no fuso local. */
 function defaultWhen(): string {
@@ -118,52 +118,64 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
     }
   }
 
-  const applyRecommendation = () => {
-    if (!rec || !rec.hours.length) return
+  /** Aplica um horário recomendado ao formulário (próxima ocorrência dessa hora). */
+  const applyHour = (hour: number) => {
     const d = new Date()
-    d.setHours(rec.hours[0], 0, 0, 0)
+    d.setHours(hour, 0, 0, 0)
     if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1)
     const pad = (n: number) => String(n).padStart(2, '0')
     setWhen(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`)
-    flash('Horário recomendado aplicado')
+    flash(`Horário ${hour}h aplicado`)
   }
 
+  const pending = jobs.filter((j) => j.status === 'pending').length
+
   return (
-    <div className="app-container app-pad" style={{ paddingTop: 26, paddingBottom: 96 }}>
+    <div className="app-container app-pad" style={{ paddingTop: 24, paddingBottom: 96 }}>
       <SectionHeader
         title="Agenda"
         subtitle="Programe posts para o piloto automático: no horário, o servidor gera, renderiza a arte e publica sozinho no Instagram."
       />
 
-      {/* Recomendação */}
+      {/* Recomendação (quantidade + horários) */}
       {rec && (
-        <Card style={{ marginBottom: 18, background: UI.dark, color: UI.darkText, border: 'none' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <HighlightCard style={{ marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <span style={{ fontSize: 18 }}>💡</span>
-            <span style={{ fontWeight: 800, fontSize: 16 }}>Recomendação</span>
-            <Badge tone="accent">com base no desempenho</Badge>
+            <span style={{ fontWeight: 800, fontSize: 16, color: UI.ink }}>Recomendação</span>
+            <Badge tone="accent">{rec.basedOn > 0 ? `com base em ${rec.basedOn} posts` : 'padrão inicial'}</Badge>
           </div>
-          <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: UI.darkTextMuted2 }}>{rec.rationale}</p>
-          {rec.hours.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <Button size="sm" variant="accent" onClick={applyRecommendation}>
-                Usar {rec.hours[0]}h no formulário
-              </Button>
+          <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontFamily: FONT.mono, fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: UI.inkMuted2 }}>
+                Posts por dia
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: UI.ink, letterSpacing: '-0.02em' }}>{rec.perDay}×</div>
             </div>
-          )}
-        </Card>
+            {rec.hours.length > 0 && (
+              <div>
+                <div style={{ fontFamily: FONT.mono, fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: UI.inkMuted2, marginBottom: 6 }}>
+                  Melhores horários — toque para usar
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {rec.hours.map((h) => (
+                    <button key={h} className="chip on" onClick={() => applyHour(h)}>
+                      {h}h
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <p style={{ margin: '12px 0 0', fontSize: 13.5, lineHeight: 1.55, color: UI.inkMuted }}>{rec.rationale}</p>
+        </HighlightCard>
       )}
 
       {/* Formulário */}
       <Card style={{ marginBottom: 18 }}>
         <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
           <Field label="Quando publicar">
-            <input
-              type="datetime-local"
-              value={when}
-              onChange={(e) => setWhen(e.target.value)}
-              style={inputStyle}
-            />
+            <input type="datetime-local" className="input" value={when} onChange={(e) => setWhen(e.target.value)} />
           </Field>
           <Field label="Formato">
             <SegmentedControl<ScheduleFormat>
@@ -181,9 +193,9 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
                 type="number"
                 min={2}
                 max={10}
+                className="input"
                 value={slides}
                 onChange={(e) => setSlides(Math.min(10, Math.max(2, Number(e.target.value) || 3)))}
-                style={inputStyle}
               />
             </Field>
           )}
@@ -192,10 +204,10 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
           </Field>
           <Field label="Tema (opcional)">
             <input
+              className="input"
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
               placeholder="Deixe vazio para a IA escolher"
-              style={inputStyle}
             />
           </Field>
         </div>
@@ -207,12 +219,18 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
       </Card>
 
       {/* Fila */}
+      {!loadingJobs && jobs.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{ fontWeight: 800, fontSize: 15, color: UI.ink }}>Fila</span>
+          {pending > 0 && <Badge tone="accent">{pending} pendente{pending > 1 ? 's' : ''}</Badge>}
+        </div>
+      )}
       {loadingJobs ? (
-        <Card>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: UI.inkMuted }}>
-            <Spinner size={18} /> Carregando agendamentos…
-          </div>
-        </Card>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} height={64} radius={14} />
+          ))}
+        </div>
       ) : jobs.length === 0 ? (
         <Card>
           <EmptyState icon="📅" title="Nenhum agendamento" hint="Programe seu primeiro post automático no formulário acima." />
@@ -235,7 +253,22 @@ function JobRow({ job, onCancel }: { job: ScheduleJob; onCancel: () => void }) {
   return (
     <Card pad="14px 18px">
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 160 }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            background: UI.surfaceAlt,
+            border: '1px solid ' + UI.border,
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 20,
+            flex: 'none',
+          }}
+        >
+          {job.format === 'carousel' ? '📚' : '🖼️'}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 150 }}>
           <span style={{ fontWeight: 800, fontSize: 15, color: UI.ink }}>
             {when.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}{' '}
             {when.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -247,7 +280,7 @@ function JobRow({ job, onCancel }: { job: ScheduleJob; onCancel: () => void }) {
         </div>
         <Badge tone={tone}>{STATUS_LABEL[job.status] ?? job.status}</Badge>
         {job.status === 'error' && job.last_error && (
-          <span style={{ fontSize: 12, color: '#B91C1C', flex: 1, minWidth: 160 }}>{job.last_error}</span>
+          <span style={{ fontSize: 12, color: 'var(--danger)', flex: 1, minWidth: 160 }}>{job.last_error}</span>
         )}
         <div style={{ flex: 1 }} />
         {(job.status === 'pending' || job.status === 'error') && (
@@ -265,7 +298,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <span
         style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: FONT.mono,
           fontSize: 10,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
@@ -277,15 +310,4 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       {children}
     </div>
   )
-}
-
-const inputStyle: CSSProperties = {
-  border: '1px solid ' + UI.border,
-  background: '#fff',
-  borderRadius: RADIUS.md,
-  padding: '10px 12px',
-  fontSize: 14,
-  color: UI.ink,
-  width: '100%',
-  fontFamily: 'inherit',
 }
