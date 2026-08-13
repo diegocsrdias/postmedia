@@ -14,6 +14,11 @@ import { publishImage, publishCarousel } from './_lib/ig.js'
 // Processa um lote pequeno por chamada para respeitar o tempo máximo da função.
 const MAX_PER_RUN = 3
 
+// Este runner gera + renderiza (Chromium) + publica: precisa de mais fôlego que
+// os demais endpoints. Config em nível de função (tem precedência sobre o
+// vercel.json), evitando padrões de `functions` sobrepostos.
+export const config = { maxDuration: 300 }
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   if (req.method === 'OPTIONS') {
