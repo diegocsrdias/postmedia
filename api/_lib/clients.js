@@ -15,6 +15,32 @@ export const CLIENTS = {
     business:
       'app brasileiro de controle financeiro pessoal com IA: scanner de notas fiscais (fotografa e a IA lança), metas com projeção automática, relatórios por categoria e recorrências',
     offer: 'Oferta: 10 dias grátis sem cartão; Pro R$9,99/mês, Premium R$19,99/mês.',
+    // Diretrizes de marca (estratégia + guardrails) injetadas em toda geração de
+    // texto — ver brandPlaybook() em ./prompts.js. É a versão desta conta do
+    // "playbook" comum da plataforma: quem a IA é, o que pode afirmar e o que é
+    // inegociável. approvedClaims é a ÚNICA fonte de números/fatos citáveis.
+    brief: {
+      role: 'Diretor de Crescimento, Estrategista de Conteúdo e Diretor Criativo do Controle DinDin',
+      mission:
+        'aumentar de forma sustentável o alcance qualificado, os cadastros ativados, os testes grátis e as assinaturas — nunca otimizar por métrica de vaidade',
+      positioning:
+        'controle financeiro que a pessoa consegue MANTER — consistência, primeira vitória rápida e menos esforço para registrar e entender os gastos',
+      funnelDefault:
+        'conversão (cadastro → teste grátis → assinatura), sem abandonar a descoberta',
+      approvedClaims: [
+        'Teste grátis de 10 dias, sem precisar de cartão',
+        'Planos a partir de R$ 9,99/mês (Pro R$ 9,99/mês, Premium R$ 19,99/mês)',
+        'Registro rápido de gastos por texto',
+        'Scanner de notas fiscais com IA (fotografa e a IA lança)',
+        'Categorização de gastos e relatórios por categoria',
+        'Metas com projeção automática de saldo e controle de recorrências',
+      ],
+      safety: [
+        'Nunca prometa enriquecimento, economia garantida, aprovação de crédito ou qualquer resultado financeiro certo',
+        'Não dê recomendação individual de investimento, crédito ou endividamento — o conteúdo é educativo e geral',
+        'Sem culpa, medo ou terrorismo financeiro',
+      ],
+    },
     tone: 'propaganda criativa, bem-humorada e confiável, com um mascote porquinho',
     audience: 'brasileiros que querem organizar as finanças',
     ctaWord: 'testar grátis / baixar o app',
@@ -48,6 +74,31 @@ export const CLIENTS = {
     // evita que a IA invente credenciais.
     credentials:
       'Especialista em Psicologia Hospitalar com ênfase em Reabilitação (Hospital das Clínicas, FMUSP) e em Neuropsicologia (FMU); pós-graduanda em Neuropsicologia',
+    // Mesmo playbook da plataforma, na chave ética de um serviço de saúde: aqui
+    // o objetivo é informar bem e transmitir confiança, não vender. approvedClaims
+    // guarda o que pode ser afirmado (credenciais e serviços reais); a persona
+    // editorial (ver prompts.js) continua sendo a voz da própria profissional.
+    brief: {
+      mission:
+        'informar bem sobre saúde mental e transmitir confiança na profissional — o objetivo é credibilidade e cuidado, não venda',
+      positioning:
+        'psicoterapia e avaliação com escuta séria e propriedade técnica — cuidado real, nunca fórmula ou autoajuda',
+      funnelDefault:
+        'consideração e confiança (visitas ao perfil, salvamentos e conversa pelo WhatsApp), sem urgência artificial',
+      approvedClaims: [
+        'Psicóloga clínica em São Paulo (CRP 06/158060)',
+        'Atende adolescentes, adultos e idosos',
+        'Serviços: psicoterapia, avaliação neuropsicológica, estimulação cognitiva e psicologia na reabilitação física',
+        'Especialista em Psicologia Hospitalar com ênfase em Reabilitação (HC-FMUSP) e em Neuropsicologia (FMU)',
+        'Atendimento presencial (Vila da Saúde/SP), online ou domiciliar; sessões semanais de 50 minutos, com sigilo',
+        'Sem preços divulgados — o convite é sempre para agendar uma conversa pelo WhatsApp',
+      ],
+      safety: [
+        'Nunca diagnostique, prometa cura ou garanta resultado',
+        'Sem sensacionalismo, autopromoção exagerada ou depoimento de paciente (Código de Ética do Psicólogo / Resolução CFP 011/2018)',
+        'Não instrumentalize o sofrimento do público como isca de procura',
+      ],
+    },
     offer:
       'Atendimento presencial (Vila da Saúde/SP), online ou domiciliar. Sessões semanais de 50 minutos, com sigilo garantido. ' +
       'Sem preços divulgados — CTA sempre para agendar uma conversa pelo WhatsApp.',

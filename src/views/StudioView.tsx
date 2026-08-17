@@ -42,9 +42,8 @@ export function StudioView({ client }: { client: ClientConfig }) {
   const [postingIdx, setPostingIdx] = useState<number | null>(null)
   const [carouselMode, setCarouselMode] = useState(false)
   const [carouselPosting, setCarouselPosting] = useState(false)
-  const [creatives, setCreatives] = useState<Creative[]>(() =>
-    pickFresh(client.bank, 1, 'all', []),
-  )
+  // abre sem nada: o usuário gera com IA (ou um tema) quando quiser
+  const [creatives, setCreatives] = useState<Creative[]>([])
   const { toast, flash } = useToast()
 
   const availableAngles = useMemo(() => {
@@ -188,14 +187,15 @@ export function StudioView({ client }: { client: ClientConfig }) {
     const angleSet = new Set(client.bank.map((item) => item.angle))
     if (filter !== 'all' && filter !== 'anuncio' && !angleSet.has(filter)) {
       setFilter('all')
-      setCreatives(pickFresh(client.bank, count, 'all', []))
+      setCreatives([])
       return
     }
     if (filter === 'anuncio') {
       void generateAdsAI(count, null)
       return
     }
-    setCreatives(pickFresh(client.bank, count, filter, []))
+    // "Todos os ângulos" abre vazio; um ângulo específico mostra o banco daquele tema
+    setCreatives(filter === 'all' ? [] : pickFresh(client.bank, count, filter, []))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client.id])
 
@@ -642,6 +642,33 @@ export function StudioView({ client }: { client: ClientConfig }) {
             {carouselPosting ? '⏳ Publicando…' : '📤 Postar carrossel no feed'}
           </button>
         </div>
+      )}
+
+      {/* estado vazio — nada mocado na abertura */}
+      {creatives.length === 0 && !generating && (
+        <Card style={{ marginTop: 22 }} pad="48px 24px">
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 14,
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 42, lineHeight: 1 }}>🎨</div>
+            <div style={{ fontWeight: 800, fontSize: 17, color: UI.ink, letterSpacing: '-0.02em' }}>
+              Nada por aqui ainda
+            </div>
+            <p style={{ margin: 0, fontSize: 13.5, color: UI.inkMuted, maxWidth: 380, lineHeight: 1.5 }}>
+              Clique em <strong>Gerar com IA</strong> ou escreva um tema em alta lá em cima — a IA cria
+              um post original na hora.
+            </p>
+            <Button size="lg" loading={generating} disabled={carouselPosting} onClick={() => generateAll()}>
+              <span style={{ fontSize: 18 }}>🎲</span> Gerar com IA
+            </Button>
+          </div>
+        </Card>
       )}
 
       {/* grid */}

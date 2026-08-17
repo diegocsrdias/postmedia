@@ -30,6 +30,46 @@ function guardrails(client) {
 }
 
 /**
+ * "Playbook" da marca — as diretrizes estratégicas e de segurança comuns a TODA
+ * geração de texto, preenchidas com o contexto de cada cliente (ver `client.brief`
+ * em ./clients.js). É a camada genérica e adaptável da plataforma: a metodologia é
+ * a mesma para todos (só afirmar o aprovado, nunca inventar dado, um CTA só, sem
+ * promessa de resultado garantido), o conteúdo muda por cliente. Vazio quando o
+ * cliente não define `brief` — aí o comportamento é o de antes (retrocompatível).
+ */
+function brandPlaybook(client) {
+  const b = client && client.brief
+  if (!b) return ''
+  const L = []
+  if (b.mission) L.push('MISSÃO: ' + b.mission + '.')
+  if (b.positioning) L.push('POSICIONAMENTO: ' + b.positioning + '.')
+  if (b.funnelDefault) {
+    L.push(
+      'FOCO DE FUNIL: ' +
+        b.funnelDefault +
+        '. Cada peça tem UM objetivo e UM CTA principal — nunca empilhe chamadas para ação.',
+    )
+  }
+  if (b.approvedClaims && b.approvedClaims.length) {
+    L.push(
+      'FATOS APROVADOS (a ÚNICA fonte de números, preços, prazos, nomes de planos, funcionalidades e credenciais que você pode citar):\n' +
+        b.approvedClaims.map((c) => '  • ' + c).join('\n'),
+    )
+  }
+  if (b.safety && b.safety.length) {
+    L.push('SEGURANÇA E ÉTICA (inegociável):\n' + b.safety.map((s) => '  • ' + s).join('\n'))
+  }
+  // Regra universal de integridade — vale para qualquer cliente, tenha ou não
+  // approvedClaims. É o coração do playbook: sem invenção de fato.
+  L.push(
+    'INTEGRIDADE: nunca invente dado, estatística, depoimento, avaliação, cliente, funcionalidade, ' +
+      'certificação, data ou resultado. Só use os FATOS APROVADOS acima; se um número ou detalhe não ' +
+      'estiver lá, omita ou reformule sem ele. Nunca prometa resultado garantido nem transformação instantânea.',
+  )
+  return '\n\nDIRETRIZES DA MARCA (siga em toda peça):\n' + L.join('\n')
+}
+
+/**
  * Abertura do system prompt — é ela que define o "papel" que a IA assume, e
  * portanto o que mais pesa no resultado. Chamar a IA de "redator publicitário"
  * fazia todo o resto sair com cara de anúncio, mesmo com as regras de escrita
@@ -48,10 +88,17 @@ function persona(role, client) {
       'e de credibilidade para o público dela. O objetivo é informar bem e transmitir confiança — não vender.'
     )
   }
+  // Quando o cliente define um papel próprio no brief (ex.: "Diretor de
+  // Crescimento…"), ele substitui o rótulo genérico — enquadra a IA como a
+  // estrategista da marca, não um redator qualquer.
+  const briefRole = client && client.brief && client.brief.role
+  if (briefRole) {
+    return 'Você é ' + briefRole + ' — a marca "' + client.name + '", ' + client.business + '.'
+  }
   return 'Você é ' + role + ' da marca "' + client.name + '", ' + client.business + '.'
 }
 
-/** Corpo comum do system prompt (oferta, tom, público, regras). */
+/** Corpo comum do system prompt (oferta, tom, público, regras, playbook). */
 function brandContext(client) {
   return (
     ' ' +
@@ -61,7 +108,8 @@ function brandContext(client) {
     '. Público: ' +
     client.audience +
     '.' +
-    guardrails(client)
+    guardrails(client) +
+    brandPlaybook(client)
   )
 }
 
