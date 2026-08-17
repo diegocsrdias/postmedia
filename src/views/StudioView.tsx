@@ -11,9 +11,11 @@ import {
   publishCarousel,
   publishToInstagram,
   publishVideoToInstagram,
+  suggestThemes,
   uploadFile,
 } from '../lib/api'
 import type { StoryTarget } from '../lib/api'
+import type { ThemeChip } from '../data/shared'
 import { pickFresh, postTextOf } from '../lib/creatives'
 import { captureJpeg, captureJpegBlob, downloadImage, recordReels } from '../lib/export'
 import type { Creative, CreativeFields, Filter, Format } from '../types'
@@ -45,6 +47,50 @@ export function StudioView({ client }: { client: ClientConfig }) {
   // abre sem nada: o usuário gera com IA (ou um tema) quando quiser
   const [creatives, setCreatives] = useState<Creative[]>([])
   const { toast, flash } = useToast()
+
+  // "Quentes agora": sugestões de tema geradas por IA (cientes da data e da
+  // marca). Começa com a lista do cliente como fallback e busca as da IA no
+  // load. Cache por dia (sessionStorage) pra não refazer a chamada a cada visita.
+  const [themes, setThemes] = useState<ThemeChip[]>(() => client.themes)
+  const [themesLoading, setThemesLoading] = useState(false)
+
+  const loadThemes = useCallback(
+    async (force = false) => {
+      const key = 'themes:' + client.id + ':' + new Date().toISOString().slice(0, 10)
+      if (!force && typeof sessionStorage !== 'undefined') {
+        const cached = sessionStorage.getItem(key)
+        if (cached) {
+          try {
+            const arr = JSON.parse(cached) as ThemeChip[]
+            if (arr.length) {
+              setThemes(arr)
+              return
+            }
+          } catch {
+            /* cache inválido: segue e busca de novo */
+          }
+        }
+      }
+      setThemesLoading(true)
+      try {
+        const items = await suggestThemes(client.id)
+        if (items.length) {
+          setThemes(items)
+          if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(key, JSON.stringify(items))
+        }
+      } finally {
+        setThemesLoading(false)
+      }
+    },
+    [client.id],
+  )
+
+  // troca de cliente: volta pro fallback e busca as sugestões daquele cliente
+  useEffect(() => {
+    setThemes(client.themes)
+    void loadThemes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadThemes])
 
   const availableAngles = useMemo(() => {
     const angleSet = new Set(client.bank.map((item) => item.angle))
@@ -537,11 +583,25 @@ export function StudioView({ client }: { client: ClientConfig }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
           <span style={monoLabel()}>Quentes agora:</span>
-          {client.themes.map((chip) => (
-            <button key={chip.theme} className="chip" onClick={() => useChip(chip.theme)}>
+          {themes.map((chip) => (
+            <button
+              key={chip.theme}
+              className="chip"
+              onClick={() => useChip(chip.theme)}
+              disabled={generating}
+            >
               {chip.label}
             </button>
           ))}
+          <button
+            className="chip"
+            onClick={() => void loadThemes(true)}
+            disabled={themesLoading}
+            title="Atualizar sugestões de tema"
+            style={{ opacity: themesLoading ? 0.55 : 1 }}
+          >
+            {themesLoading ? '⏳' : '🔄'}
+          </button>
         </div>
       </HighlightCard>
 

@@ -7,6 +7,7 @@
 
 import type { Angle, Creative, CreativeFields, Format } from '../types'
 import { EDIT_FIELDS } from '../data/shared'
+import type { ThemeChip } from '../data/shared'
 import { deriveVcap } from './creatives'
 
 const BASE = import.meta.env.VITE_API_BASE || '/api'
@@ -71,6 +72,20 @@ function toCreatives(items: RawThemed[] | undefined, angle: Angle, prefix: strin
       _key: prefix + '-' + i + '-' + Math.random().toString(36).slice(2, 7),
     }
   })
+}
+
+/**
+ * Sugere os "temas quentes" do momento para um cliente — gerados por IA,
+ * cientes da data de hoje e do contexto da marca (substituem a lista fixa).
+ * Devolve [] em qualquer falha, para o chamador cair no fallback estático.
+ */
+export async function suggestThemes(clientId: string): Promise<ThemeChip[]> {
+  try {
+    const { items } = await post<{ items: ThemeChip[] }>('suggest-themes', { clientId })
+    return (items || []).filter((x) => x && x.label && x.theme)
+  } catch {
+    return []
+  }
 }
 
 /** Gera `n` criativos amarrando um tema em alta via backend. */
