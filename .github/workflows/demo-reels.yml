@@ -1,0 +1,62 @@
+# Gera um vídeo de demonstração do app real e publica como Reels/Story.
+# Disparo MANUAL (workflow_dispatch) — nada de cron ainda, pra não postar sozinho
+# antes de você validar. Quando estiver redondo, é só adicionar um `schedule:`.
+#
+# Segredos necessários (Settings -> Secrets and variables -> Actions):
+#   DINDIN_DEMO_URL, DINDIN_DEMO_EMAIL, DINDIN_DEMO_PASSWORD, POSTMEDIA_BASE_URL
+
+name: demo-reels
+
+on:
+  workflow_dispatch:
+    inputs:
+      flow:
+        description: 'Fluxo (ex.: scan-nota, meta)'
+        required: true
+        default: 'scan-nota'
+      targets:
+        description: 'Onde publicar (reels, story ou reels,story)'
+        required: true
+        default: 'reels'
+      publish:
+        description: 'Publicar de verdade?'
+        type: boolean
+        default: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependências do worker
+        working-directory: worker
+        run: npm install
+
+      - name: Instalar Chromium do Playwright
+        working-directory: worker
+        run: npx playwright install --with-deps chromium
+
+      - name: Gerar (e opcionalmente publicar) o vídeo
+        working-directory: worker
+        env:
+          DINDIN_DEMO_URL: ${{ secrets.DINDIN_DEMO_URL }}
+          DINDIN_DEMO_EMAIL: ${{ secrets.DINDIN_DEMO_EMAIL }}
+          DINDIN_DEMO_PASSWORD: ${{ secrets.DINDIN_DEMO_PASSWORD }}
+          POSTMEDIA_BASE_URL: ${{ secrets.POSTMEDIA_BASE_URL }}
+        run: |
+          node record-demo.mjs \
+            --flow "${{ github.event.inputs.flow }}" \
+            --targets "${{ github.event.inputs.targets }}" \
+            ${{ github.event.inputs.publish == 'true' && '--publish' || '' }}
+
+      - name: Guardar o vídeo como artefato (pra você conferir antes de postar)
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-${{ github.event.inputs.flow }}
+          path: worker/out/*.mp4
+          if-no-files-found: warn

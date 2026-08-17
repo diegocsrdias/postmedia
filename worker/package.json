@@ -1,0 +1,13 @@
+{
+  "name": "postmedia-worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Worker de vídeos de demonstração (Playwright + ffmpeg). Roda no GitHub Actions, isolado do app da Vercel.",
+  "scripts": {
+    "demo": "node record-demo.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}
