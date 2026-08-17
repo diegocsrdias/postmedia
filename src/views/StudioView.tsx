@@ -32,6 +32,9 @@ function aiError(err: unknown): string {
   return 'A IA tropeçou — tente de novo'
 }
 
+/** Opção do seletor de formato (a UI unifica feed/carrossel/story num só lugar). */
+type FormatChoice = 'feed' | 'carousel' | 'story'
+
 export function StudioView({ client }: { client: ClientConfig }) {
   const [format, setFormat] = useState<Format>('square')
   const [filter, setFilter] = useState<Filter>('all')
@@ -44,6 +47,7 @@ export function StudioView({ client }: { client: ClientConfig }) {
   const [postingIdx, setPostingIdx] = useState<number | null>(null)
   const [carouselMode, setCarouselMode] = useState(false)
   const [carouselPosting, setCarouselPosting] = useState(false)
+  const [slides, setSlides] = useState(3) // nº de telas quando o formato é carrossel
   // abre sem nada: o usuário gera com IA (ou um tema) quando quiser
   const [creatives, setCreatives] = useState<Creative[]>([])
   const { toast, flash } = useToast()
@@ -107,10 +111,27 @@ export function StudioView({ client }: { client: ClientConfig }) {
 
   const square = format === 'square'
 
+  // ----- formato (Feed / Carrossel / Story num só seletor) -----
+  // O carrossel é um formato como os outros, não um botão à parte: internamente
+  // ele é "quadrado + modo carrossel". `formatChoice` traduz o estado interno
+  // (format + carouselMode) no valor do seletor, e `pickFormat` faz o inverso.
+  const formatChoice: FormatChoice = carouselMode ? 'carousel' : format === 'story' ? 'story' : 'feed'
+  const pickFormat = (choice: FormatChoice) => {
+    if (generating || carouselPosting) return
+    const wantCarousel = choice === 'carousel'
+    // trocar de/para carrossel limpa a grade (as telas eram uma unidade)
+    if (wantCarousel !== carouselMode) setCreatives([])
+    setCarouselMode(wantCarousel)
+    setFormat(choice === 'story' ? 'story' : 'square')
+  }
+
   // ----- geração -----
   const generateAll = useCallback(
     (nextFilter = filter, nextCount = count) => {
-      setCarouselMode(false)
+      if (carouselMode) {
+        void doGenerateCarousel(slides)
+        return
+      }
       if (nextFilter === 'anuncio') {
         void generateAdsAI(nextCount, null)
         return
@@ -122,7 +143,7 @@ export function StudioView({ client }: { client: ClientConfig }) {
       setCreatives(pickFresh(client.bank, nextCount, nextFilter, []))
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [client, filter, count],
+    [client, filter, count, carouselMode, slides],
   )
 
   // Concatena textos já na tela pra IA não repetir na próxima leva.
@@ -536,20 +557,10 @@ export function StudioView({ client }: { client: ClientConfig }) {
         title="Estúdio"
         subtitle="A IA cria posts originais e publica direto no Instagram — feed, Story, Reels e carrossel."
         right={
-          <div className="stack-sm" style={{ display: 'flex', gap: 8 }}>
-            <Button
-              variant="ghost"
-              disabled={generating || carouselPosting}
-              onClick={() => void doGenerateCarousel(3)}
-              title="Gera 3 telas coesas para postar como um carrossel único no feed"
-            >
-              📚 Carrossel
-            </Button>
-            <Button size="lg" loading={generating} disabled={carouselPosting} onClick={() => generateAll()}>
-              {!generating && <span style={{ fontSize: 18 }}>🎲</span>}
-              {generating ? 'Criando…' : 'Gerar com IA'}
-            </Button>
-          </div>
+          <Button size="lg" loading={generating} disabled={carouselPosting} onClick={() => generateAll()}>
+            {!generating && <span style={{ fontSize: 18 }}>{carouselMode ? '📚' : '🎲'}</span>}
+            {generating ? 'Criando…' : carouselMode ? 'Gerar carrossel' : 'Gerar com IA'}
+          </Button>
         }
       />
 
@@ -610,41 +621,59 @@ export function StudioView({ client }: { client: ClientConfig }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px 26px', alignItems: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={monoLabel()}>Formato</span>
-            <SegmentedControl<Format>
-              value={format}
-              onChange={setFormat}
+            <SegmentedControl<FormatChoice>
+              value={formatChoice}
+              onChange={pickFormat}
               options={[
-                { value: 'square', label: 'Feed 1:1' },
+                { value: 'feed', label: 'Feed 1:1' },
+                { value: 'carousel', label: '📚 Carrossel' },
                 { value: 'story', label: 'Story 9:16' },
               ]}
             />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={monoLabel()}>Ângulo</span>
-            <select
-              className="select"
-              value={filter}
-              onChange={(e) => {
-                const v = e.target.value as Filter
-                setFilter(v)
-                generateAll(v, count)
-              }}
-              style={{ borderRadius: RADIUS.pill, fontWeight: 600, minWidth: 190, cursor: 'pointer' }}
-            >
-              <option value="all">Todos os ângulos</option>
-              {availableAngles.map((angle) => (
-                <option key={angle} value={angle}>
-                  {ANGLE_LABELS[angle]}
-                </option>
-              ))}
-              <option value="anuncio">📣 Anúncio (propaganda)</option>
-            </select>
-          </div>
+
+          {/* nº de telas — só relevante no carrossel */}
+          {carouselMode ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={monoLabel()}>Telas</span>
+              <SegmentedControl<string>
+                value={String(slides)}
+                onChange={(v) => setSlides(Number(v))}
+                options={[
+                  { value: '3', label: '3' },
+                  { value: '4', label: '4' },
+                  { value: '5', label: '5' },
+                ]}
+              />
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={monoLabel()}>Ângulo</span>
+              <select
+                className="select"
+                value={filter}
+                onChange={(e) => {
+                  const v = e.target.value as Filter
+                  setFilter(v)
+                  generateAll(v, count)
+                }}
+                style={{ borderRadius: RADIUS.pill, fontWeight: 600, minWidth: 190, cursor: 'pointer' }}
+              >
+                <option value="all">Todos os ângulos</option>
+                {availableAngles.map((angle) => (
+                  <option key={angle} value={angle}>
+                    {ANGLE_LABELS[angle]}
+                  </option>
+                ))}
+                <option value="anuncio">📣 Anúncio (propaganda)</option>
+              </select>
+            </div>
+          )}
         </div>
       </Card>
 
-      {/* barra do carrossel */}
-      {carouselMode && (
+      {/* barra do carrossel — só quando já existem telas para postar */}
+      {carouselMode && creatives.length > 0 && (
         <div
           style={{
             marginTop: 18,
@@ -664,23 +693,6 @@ export function StudioView({ client }: { client: ClientConfig }) {
             Usa a legenda da 1ª tela · arraste no Instagram
           </span>
           <div style={{ flex: 1 }} />
-          <button
-            className="ui-btn"
-            onClick={() => setCarouselMode(false)}
-            disabled={carouselPosting}
-            style={{
-              background: 'var(--surface-2)',
-              color: UI.darkTextMuted,
-              border: '1px solid ' + UI.darkBorder,
-              borderRadius: RADIUS.pill,
-              padding: '9px 16px',
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: 'pointer',
-            }}
-          >
-            ✕ Sair
-          </button>
           <button
             className="ui-btn"
             onClick={() => void doPublishCarousel()}
@@ -721,11 +733,21 @@ export function StudioView({ client }: { client: ClientConfig }) {
               Nada por aqui ainda
             </div>
             <p style={{ margin: 0, fontSize: 13.5, color: UI.inkMuted, maxWidth: 380, lineHeight: 1.5 }}>
-              Clique em <strong>Gerar com IA</strong> ou escreva um tema em alta lá em cima — a IA cria
-              um post original na hora.
+              {carouselMode ? (
+                <>
+                  Clique em <strong>Gerar carrossel</strong> — a IA cria {slides} telas coesas pra
+                  postar como um carrossel único no feed.
+                </>
+              ) : (
+                <>
+                  Clique em <strong>Gerar com IA</strong> ou escreva um tema em alta lá em cima — a IA
+                  cria um post original na hora.
+                </>
+              )}
             </p>
             <Button size="lg" loading={generating} disabled={carouselPosting} onClick={() => generateAll()}>
-              <span style={{ fontSize: 18 }}>🎲</span> Gerar com IA
+              <span style={{ fontSize: 18 }}>{carouselMode ? '📚' : '🎲'}</span>{' '}
+              {carouselMode ? 'Gerar carrossel' : 'Gerar com IA'}
             </Button>
           </div>
         </Card>
