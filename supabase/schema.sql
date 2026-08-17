@@ -97,6 +97,39 @@ create index if not exists schedule_client_idx on public.schedule (client, sched
 alter table public.schedule enable row level security;
 
 -- ============================================================
+-- Regras de RECORRÊNCIA. Cada linha = um padrão ("toda segunda às 9h e 18h").
+-- O runner (api/run-scheduler) MATERIALIZA cada regra ativa nas próximas
+-- ocorrências concretas em public.schedule, e a execução segue igual.
+-- ============================================================
+create table if not exists public.schedule_rules (
+  id            uuid primary key default gen_random_uuid(),
+  created_at    timestamptz not null default now(),
+  client        text not null,
+  active        boolean not null default true,
+
+  -- o que publicar (mesmos campos de um job)
+  format        text not null default 'feed',   -- 'feed' | 'carousel'
+  slides        integer not null default 1,
+  theme         text,
+  angle         text,
+  layout        text,
+  image_mode    text default 'none',
+
+  -- quando: dias da semana (0=dom … 6=sáb; vazio = todo dia) + horários 'HH:MM'
+  weekdays      integer[] not null default '{}',
+  times         text[]    not null default '{}',
+  timezone      text not null default 'America/Sao_Paulo'
+);
+
+create index if not exists schedule_rules_client_idx on public.schedule_rules (client);
+alter table public.schedule_rules enable row level security;
+
+-- Liga cada job materializado à sua regra e evita duplicar a mesma ocorrência.
+alter table public.schedule add column if not exists rule_id uuid;
+create unique index if not exists schedule_rule_slot_idx
+  on public.schedule (rule_id, scheduled_for) where rule_id is not null;
+
+-- ============================================================
 -- Memória de desempenho por cliente — o "aprendizado" que realimenta a IA.
 -- Reconstruída periodicamente por api/build-learnings a partir de `posts`.
 -- `brief` é um texto curto (PT-BR) e `stats` guarda os rankings estruturados.

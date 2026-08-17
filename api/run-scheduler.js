@@ -1,5 +1,6 @@
 import { cronGuard } from './_lib/cron.js'
 import { listDueJobs, updateJob, uploadMedia } from './_lib/supabase.js'
+import { materializeAll } from './_lib/schedule.js'
 import { getClient } from './_lib/clients.js'
 import { generateCreatives } from './_lib/generate.js'
 import { generateBackground } from './_lib/image.js'
@@ -29,17 +30,25 @@ export default async function handler(req, res) {
 
   const results = []
   try {
+    // materializa as regras recorrentes nas próximas ocorrências (idempotente)
+    let materialized = 0
+    try {
+      materialized = await materializeAll()
+    } catch {
+      /* não deixa a materialização travar a publicação dos jobs já prontos */
+    }
+
     const due = await listDueJobs(new Date().toISOString(), MAX_PER_RUN)
     for (const job of due) {
       results.push(await runJob(job))
     }
+    await closeBrowser()
+    res.status(200).json({ processed: results.length, materialized, results })
+    return
   } catch (err) {
     await closeBrowser()
     res.status(502).json({ error: String(err?.message || err), results })
-    return
   }
-  await closeBrowser()
-  res.status(200).json({ processed: results.length, results })
 }
 
 async function runJob(job) {

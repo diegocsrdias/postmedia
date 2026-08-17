@@ -3,11 +3,14 @@ import type { ReactNode } from 'react'
 import type { ClientConfig } from '../clients'
 import {
   cancelSchedule,
+  createRecurrence,
   createSchedule,
+  deleteRecurrence,
   fetchScheduleRecommendation,
+  listRecurrences,
   listSchedule,
 } from '../lib/api'
-import type { ScheduleFormat, ScheduleJob, ScheduleRecommendation } from '../lib/api'
+import type { ScheduleFormat, ScheduleJob, ScheduleRecommendation, ScheduleRule } from '../lib/api'
 import { FONT, UI } from '../ui/theme'
 import { Badge, Button, Card, EmptyState, HighlightCard, SectionHeader, SegmentedControl, Skeleton, Toast, useToast } from '../ui/components'
 
@@ -17,6 +20,21 @@ function defaultWhen(): string {
   d.setSeconds(0, 0)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** Rótulos curtos dos dias da semana (índice 0=dom … 6=sáb). */
+const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+/** Descreve uma regra em linguagem natural ("Toda segunda e quinta às 09:00, 18:00"). */
+function describeRule(rule: ScheduleRule): string {
+  const days =
+    !rule.weekdays || rule.weekdays.length === 0
+      ? 'Todo dia'
+      : rule.weekdays.length === 7
+        ? 'Todo dia'
+        : 'Toda ' + rule.weekdays.slice().sort().map((d) => WEEKDAYS[d]).join(', ')
+  const times = (rule.times || []).join(', ')
+  return `${days} às ${times}`
 }
 
 const STATUS_TONE: Record<string, 'neutral' | 'success' | 'warn' | 'danger' | 'accent'> = {
@@ -41,24 +59,40 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
   const [rec, setRec] = useState<ScheduleRecommendation | null>(null)
 
   // form
+  const [mode, setMode] = useState<'once' | 'recurring'>('once')
   const [when, setWhen] = useState(defaultWhen)
+  const [weekdays, setWeekdays] = useState<number[]>([]) // vazio = todo dia
+  const [times, setTimes] = useState<string[]>(['09:00'])
   const [format, setFormat] = useState<ScheduleFormat>('feed')
   const [slides, setSlides] = useState(3)
   const [theme, setTheme] = useState('')
   const [imageMode, setImageMode] = useState<'none' | 'editorial' | 'promo'>('none')
   const [saving, setSaving] = useState(false)
+  const [rules, setRules] = useState<ScheduleRule[]>([])
 
   const load = useCallback(async () => {
     setLoadingJobs(true)
     try {
-      const { jobs } = await listSchedule(client.id)
-      setJobs(jobs)
+      const [jobsRes, rulesRes] = await Promise.allSettled([
+        listSchedule(client.id),
+        listRecurrences(client.id),
+      ])
+      if (jobsRes.status === 'fulfilled') setJobs(jobsRes.value.jobs)
+      if (rulesRes.status === 'fulfilled') setRules(rulesRes.value.rules)
     } catch {
       /* silencioso: sem backend ainda, a lista fica vazia */
     } finally {
       setLoadingJobs(false)
     }
   }, [client.id])
+
+  // helpers do editor de recorrência
+  const toggleWeekday = (d: number) =>
+    setWeekdays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()))
+  const setTimeAt = (i: number, v: string) =>
+    setTimes((prev) => prev.map((t, idx) => (idx === i ? v : t)))
+  const addTime = () => setTimes((prev) => [...prev, '12:00'])
+  const removeTime = (i: number) => setTimes((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev))
 
   useEffect(() => {
     void load()
@@ -83,22 +117,40 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
 
   async function submit() {
     if (saving) return
-    const scheduledFor = new Date(when)
-    if (isNaN(scheduledFor.getTime())) {
-      flash('Data/hora inválida')
-      return
-    }
     setSaving(true)
     try {
-      await createSchedule({
-        client: client.id,
-        scheduledFor: scheduledFor.toISOString(),
-        format,
-        slides: format === 'carousel' ? slides : 1,
-        theme: theme.trim() || undefined,
-        imageMode,
-      })
-      flash('Post agendado! 📅')
+      if (mode === 'recurring') {
+        const clean = times.filter((t) => /^\d{1,2}:\d{2}$/.test(t))
+        if (!clean.length) {
+          flash('Adicione ao menos um horário')
+          return
+        }
+        const { materialized } = await createRecurrence({
+          client: client.id,
+          format,
+          slides: format === 'carousel' ? slides : 1,
+          theme: theme.trim() || undefined,
+          imageMode,
+          weekdays,
+          times: clean,
+        })
+        flash(materialized > 0 ? `Recorrência criada — ${materialized} já na fila! 🔁` : 'Recorrência criada! 🔁')
+      } else {
+        const scheduledFor = new Date(when)
+        if (isNaN(scheduledFor.getTime())) {
+          flash('Data/hora inválida')
+          return
+        }
+        await createSchedule({
+          client: client.id,
+          scheduledFor: scheduledFor.toISOString(),
+          format,
+          slides: format === 'carousel' ? slides : 1,
+          theme: theme.trim() || undefined,
+          imageMode,
+        })
+        flash('Post agendado! 📅')
+      }
       setTheme('')
       void load()
     } catch (e) {
@@ -118,12 +170,28 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
     }
   }
 
-  /** Aplica um horário recomendado ao formulário (próxima ocorrência dessa hora). */
+  async function doDeleteRule(id: string) {
+    try {
+      await deleteRecurrence(id)
+      flash('Recorrência removida')
+      void load()
+    } catch (e) {
+      flash('Falhou: ' + String((e as Error)?.message || e))
+    }
+  }
+
+  /** Aplica um horário recomendado: adiciona à recorrência ou vira o próximo agendamento. */
   const applyHour = (hour: number) => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    if (mode === 'recurring') {
+      const hh = pad(hour) + ':00'
+      setTimes((prev) => (prev.includes(hh) ? prev : [...prev, hh].sort()))
+      flash(`Horário ${hour}h adicionado`)
+      return
+    }
     const d = new Date()
     d.setHours(hour, 0, 0, 0)
     if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1)
-    const pad = (n: number) => String(n).padStart(2, '0')
     setWhen(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`)
     flash(`Horário ${hour}h aplicado`)
   }
@@ -134,7 +202,7 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
     <div className="app-container app-pad" style={{ paddingTop: 24, paddingBottom: 96 }}>
       <SectionHeader
         title="Agenda"
-        subtitle="Programe posts para o piloto automático: no horário, o servidor gera, renderiza a arte e publica sozinho no Instagram."
+        subtitle="Programe posts para o piloto automático — uma vez ou recorrente (ex.: todo dia às 9h, 12h e 18h; toda segunda). No horário, o servidor gera, renderiza e publica sozinho."
       />
 
       {/* Recomendação (quantidade + horários) */}
@@ -173,10 +241,75 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
 
       {/* Formulário */}
       <Card style={{ marginBottom: 18 }}>
-        <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          <Field label="Quando publicar">
-            <input type="datetime-local" className="input" value={when} onChange={(e) => setWhen(e.target.value)} />
+        {/* Frequência: uma vez ou recorrente */}
+        <div style={{ marginBottom: 16 }}>
+          <Field label="Frequência">
+            <SegmentedControl<'once' | 'recurring'>
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'once', label: '📅 Uma vez' },
+                { value: 'recurring', label: '🔁 Recorrente' },
+              ]}
+            />
           </Field>
+        </div>
+
+        {/* Quando publicar — muda conforme a frequência */}
+        {mode === 'once' ? (
+          <div style={{ marginBottom: 16, maxWidth: 320 }}>
+            <Field label="Quando publicar">
+              <input type="datetime-local" className="input" value={when} onChange={(e) => setWhen(e.target.value)} />
+            </Field>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16 }}>
+            <Field label="Dias da semana (nenhum = todo dia)">
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {WEEKDAYS.map((label, d) => (
+                  <button
+                    key={d}
+                    className={'chip' + (weekdays.includes(d) ? ' on' : '')}
+                    onClick={() => toggleWeekday(d)}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <Field label="Horários">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {times.map((t, i) => (
+                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <input
+                      type="time"
+                      className="input"
+                      value={t}
+                      onChange={(e) => setTimeAt(i, e.target.value)}
+                      style={{ width: 120 }}
+                    />
+                    {times.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeTime(i)}
+                        title="Remover horário"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: UI.inkMuted2, fontSize: 16 }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </span>
+                ))}
+                <button className="chip" type="button" onClick={addTime}>
+                  + horário
+                </button>
+              </div>
+            </Field>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
           <Field label="Formato">
             <SegmentedControl<ScheduleFormat>
               value={format}
@@ -213,10 +346,25 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
         </div>
         <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end' }}>
           <Button loading={saving} onClick={() => void submit()}>
-            📅 Agendar publicação automática
+            {mode === 'recurring' ? '🔁 Criar recorrência' : '📅 Agendar publicação'}
           </Button>
         </div>
       </Card>
+
+      {/* Recorrências ativas */}
+      {rules.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span style={{ fontWeight: 800, fontSize: 15, color: UI.ink }}>🔁 Recorrências</span>
+            <Badge tone="accent">{rules.length}</Badge>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {rules.map((r) => (
+              <RuleRow key={r.id} rule={r} onDelete={() => void doDeleteRule(r.id)} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Fila */}
       {!loadingJobs && jobs.length > 0 && (
@@ -288,6 +436,41 @@ function JobRow({ job, onCancel }: { job: ScheduleJob; onCancel: () => void }) {
             Cancelar
           </Button>
         )}
+      </div>
+    </Card>
+  )
+}
+
+function RuleRow({ rule, onDelete }: { rule: ScheduleRule; onDelete: () => void }) {
+  return (
+    <Card pad="14px 18px">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            background: UI.surfaceAlt,
+            border: '1px solid ' + UI.border,
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 20,
+            flex: 'none',
+          }}
+        >
+          🔁
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 180 }}>
+          <span style={{ fontWeight: 800, fontSize: 15, color: UI.ink }}>{describeRule(rule)}</span>
+          <span style={{ fontSize: 12, color: UI.inkMuted2 }}>
+            {rule.format === 'carousel' ? `Carrossel · ${rule.slides} telas` : 'Feed'}
+            {rule.theme ? ` · "${rule.theme}"` : ''}
+          </span>
+        </div>
+        <div style={{ flex: 1 }} />
+        <Button size="sm" variant="danger" onClick={onDelete}>
+          Remover
+        </Button>
       </div>
     </Card>
   )

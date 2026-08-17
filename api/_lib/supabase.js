@@ -233,3 +233,64 @@ export async function updatePostMetrics(id, metrics) {
     .eq('id', id)
   if (error) throw new Error('Supabase DB: ' + error.message)
 }
+
+// ---- Regras de recorrência ----
+
+/** Cria uma regra recorrente e devolve o registro. */
+export async function insertRule(row) {
+  const sb = supabase()
+  const { data, error } = await sb.from('schedule_rules').insert(row).select().single()
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data
+}
+
+/** Lista as regras de um cliente (mais recentes primeiro). */
+export async function listRules(client, limit = 100) {
+  const sb = supabase()
+  let q = sb.from('schedule_rules').select('*').order('created_at', { ascending: false }).limit(limit)
+  if (client) q = q.eq('client', client)
+  const { data, error } = await q
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data || []
+}
+
+/** Todas as regras ativas (usadas pelo materializador do runner). */
+export async function listActiveRules() {
+  const sb = supabase()
+  const { data, error } = await sb.from('schedule_rules').select('*').eq('active', true)
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data || []
+}
+
+/** Apaga uma regra. Devolve o cliente dono (ou null) para revalidação. */
+export async function deleteRule(id) {
+  const sb = supabase()
+  const { data, error } = await sb.from('schedule_rules').delete().eq('id', id).select('client').maybeSingle()
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data?.client ?? null
+}
+
+/** scheduled_for já materializados de uma regra numa janela (para dedupe). */
+export async function listRuleSlots(ruleId, fromIso, toIso) {
+  const sb = supabase()
+  const { data, error } = await sb
+    .from('schedule')
+    .select('scheduled_for')
+    .eq('rule_id', ruleId)
+    .gte('scheduled_for', fromIso)
+    .lte('scheduled_for', toIso)
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return new Set((data || []).map((r) => r.scheduled_for))
+}
+
+/** Cancela os jobs FUTUROS ainda pendentes de uma regra (ao pausar/apagar). */
+export async function cancelFutureRuleJobs(ruleId) {
+  const sb = supabase()
+  const { error } = await sb
+    .from('schedule')
+    .update({ status: 'canceled' })
+    .eq('rule_id', ruleId)
+    .eq('status', 'pending')
+    .gt('scheduled_for', new Date().toISOString())
+  if (error) throw new Error('Supabase DB: ' + error.message)
+}

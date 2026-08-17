@@ -410,6 +410,51 @@ export async function cancelSchedule(id: string): Promise<{ ok: boolean }> {
   return post<{ ok: boolean }>('schedule-cancel', { id })
 }
 
+/* ---- Recorrência (regras que geram jobs automaticamente) ---- */
+
+export interface ScheduleRule {
+  id: string
+  created_at: string
+  client: string
+  active: boolean
+  format: ScheduleFormat | string
+  slides: number
+  theme: string | null
+  angle: string | null
+  layout: string | null
+  image_mode: string | null
+  weekdays: number[] // 0=dom … 6=sáb; vazio = todo dia
+  times: string[] // ['09:00','18:00']
+  timezone: string
+}
+
+export interface RecurrenceInput {
+  client: string
+  format: ScheduleFormat
+  slides?: number
+  theme?: string
+  imageMode?: 'none' | 'editorial' | 'promo'
+  weekdays: number[]
+  times: string[]
+}
+
+/** Cria uma regra recorrente (e já materializa as próximas ocorrências). */
+export async function createRecurrence(
+  input: RecurrenceInput,
+): Promise<{ rule: ScheduleRule; materialized: number }> {
+  return post<{ rule: ScheduleRule; materialized: number }>('schedule-rule-create', input)
+}
+
+/** Lista as regras recorrentes de um cliente. */
+export async function listRecurrences(client: string): Promise<{ rules: ScheduleRule[] }> {
+  return post<{ rules: ScheduleRule[] }>('schedule-rules-list', { client })
+}
+
+/** Apaga uma regra recorrente (e cancela seus jobs futuros pendentes). */
+export async function deleteRecurrence(id: string): Promise<{ ok: boolean }> {
+  return post<{ ok: boolean }>('schedule-rule-delete', { id })
+}
+
 /** Recomendação de cadência/horários com base no desempenho. */
 export interface ScheduleRecommendation {
   perDay: number
