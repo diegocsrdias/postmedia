@@ -305,6 +305,37 @@ export async function publishCarousel({ imageUrls, caption, meta = {} }) {
 }
 
 /**
+ * Lista a mídia JÁ publicada na conta (feed, carrossel e Reels), da mais recente
+ * para a mais antiga, paginando até `max`. É a base do backfill: importar o que
+ * já existe no perfil para o aprendizado não começar do zero.
+ *
+ * Observação: Stories não aparecem neste edge (são efêmeros e ficam em /stories);
+ * aqui pegamos o conteúdo permanente do feed, que é o que interessa à análise.
+ * Retorna os objetos crus da Graph API (id, caption, media_type, timestamp…).
+ */
+export async function listAccountMedia({ limit = 50, max = 100 } = {}) {
+  const { userId, token } = igConfig()
+  const fields =
+    'id,caption,media_type,media_product_type,permalink,timestamp,media_url,thumbnail_url'
+  const out = []
+  let after = ''
+  while (out.length < max) {
+    const params = {
+      fields,
+      limit: String(Math.min(limit, max - out.length)),
+      access_token: token,
+    }
+    if (after) params.after = after
+    const page = await graph(`/${userId}/media`, params, 'GET')
+    const items = page?.data || []
+    out.push(...items)
+    after = page?.paging?.cursors?.after || ''
+    if (!after || !items.length) break
+  }
+  return out.slice(0, max)
+}
+
+/**
  * Lê as métricas de desempenho de um post publicado.
  * Tolerante: o que a API não devolver fica indefinido (não estoura).
  * Retorna { like_count, comments_count, reach, impressions, saved, shares }.

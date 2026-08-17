@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { ClientConfig } from '../clients'
 import { ANGLE_LABELS } from '../data/shared'
-import { fetchInsightsSummary, fetchLearnings } from '../lib/api'
+import { fetchInsightsSummary, fetchLearnings, importInstagram } from '../lib/api'
 import type { InsightsSummary, Learnings } from '../lib/api'
 import type { Angle } from '../types'
 import { UI, fieldLabel } from '../ui/theme'
-import { Badge, Card, EmptyState, HighlightCard, SectionHeader, Skeleton, Stat, Toast, useToast } from '../ui/components'
+import { Badge, Button, Card, EmptyState, HighlightCard, SectionHeader, Skeleton, Stat, Toast, useToast } from '../ui/components'
 
 // rótulos amigáveis dos formatos e layouts no painel de desempenho
 const FORMAT_LABELS: Record<string, string> = {
@@ -29,32 +29,53 @@ export function PerformanceView({ client }: { client: ClientConfig }) {
   const [insights, setInsights] = useState<InsightsSummary | null>(null)
   const [learnings, setLearnings] = useState<Learnings | null>(null)
   const [loading, setLoading] = useState(true)
+  const [importing, setImporting] = useState(false)
   const { toast, flash } = useToast()
 
-  useEffect(() => {
-    let alive = true
+  const load = useCallback(async () => {
     setLoading(true)
-    setInsights(null)
-    setLearnings(null)
-    ;(async () => {
-      try {
-        const [ins, lrn] = await Promise.allSettled([
-          fetchInsightsSummary(client.id),
-          fetchLearnings(client.id),
-        ])
-        if (!alive) return
-        if (ins.status === 'fulfilled') setInsights(ins.value)
-        else flash('Não consegui carregar o desempenho')
-        if (lrn.status === 'fulfilled') setLearnings(lrn.value.learnings)
-      } finally {
-        if (alive) setLoading(false)
-      }
-    })()
-    return () => {
-      alive = false
+    try {
+      const [ins, lrn] = await Promise.allSettled([
+        fetchInsightsSummary(client.id),
+        fetchLearnings(client.id),
+      ])
+      if (ins.status === 'fulfilled') setInsights(ins.value)
+      else flash('Não consegui carregar o desempenho')
+      if (lrn.status === 'fulfilled') setLearnings(lrn.value.learnings)
+    } finally {
+      setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client.id])
+
+  useEffect(() => {
+    setInsights(null)
+    setLearnings(null)
+    void load()
+  }, [load])
+
+  // Importa o que já foi postado na conta conectada (hoje o DinDin), pra o
+  // aprendizado não começar zerado. Idempotente: rerodar só traz o que falta.
+  const runImport = async () => {
+    if (importing) return
+    setImporting(true)
+    flash('Importando posts do Instagram…')
+    try {
+      const r = await importInstagram(client.id)
+      flash(
+        r.imported > 0
+          ? `Importados ${r.imported} posts do Instagram! 🎉`
+          : r.account_media === 0
+            ? 'Nenhum post encontrado na conta conectada'
+            : 'Tudo já estava importado — nada novo',
+      )
+      await load()
+    } catch (err) {
+      flash('Falhou: ' + String((err as Error)?.message || err))
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const bestHour = insights?.byHour?.[0]
   const bestAngle = insights?.byAngle?.[0]
@@ -68,6 +89,12 @@ export function PerformanceView({ client }: { client: ClientConfig }) {
       <SectionHeader
         title="Desempenho"
         subtitle="O que vem funcionando melhor nesta conta. Estes aprendizados realimentam a IA que gera os criativos."
+        right={
+          <Button variant="ghost" loading={importing} onClick={() => void runImport()} title="Puxa os posts que já existem na conta do Instagram para a base de aprendizado">
+            {!importing && <span style={{ fontSize: 16 }}>⬇️</span>}
+            {importing ? 'Importando…' : 'Importar do Instagram'}
+          </Button>
+        }
       />
 
       {loading ? (
@@ -84,8 +111,14 @@ export function PerformanceView({ client }: { client: ClientConfig }) {
           <EmptyState
             icon="📊"
             title="Ainda sem métricas"
-            hint={`Publique alguns criativos de ${client.name} e volte em ~1 dia. As métricas (alcance, salvos…) são sincronizadas automaticamente todo dia, e a IA passa a usá-las.`}
+            hint={`Importe os posts que já existem no Instagram de ${client.name} para começar com dados reais — ou publique pelo app e as métricas entram sozinhas (sincronizadas todo dia).`}
           />
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
+            <Button loading={importing} onClick={() => void runImport()}>
+              {!importing && <span style={{ fontSize: 16 }}>⬇️</span>}
+              {importing ? 'Importando…' : 'Importar do Instagram'}
+            </Button>
+          </div>
         </Card>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>

@@ -328,6 +328,24 @@ export async function fetchLearnings(client: string): Promise<{ learnings: Learn
   return post<{ learnings: Learnings | null }>('learnings-get', { client })
 }
 
+/** Resultado da importação do histórico do Instagram. */
+export interface ImportResult {
+  client: string
+  account_media: number
+  already_had: number
+  imported: number
+  with_metrics: boolean
+  learning: unknown
+}
+
+/**
+ * Importa os posts que já existem na conta do Instagram para a base de
+ * aprendizado (backfill). Idempotente: só traz o que ainda falta.
+ */
+export async function importInstagram(client: string, max = 100): Promise<ImportResult> {
+  return post<ImportResult>('ig-import', { client, max })
+}
+
 /* ============================================================
    Agendador (autopilot)
    ============================================================ */

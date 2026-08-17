@@ -27,27 +27,34 @@ export default async function handler(req, res) {
     const allPosts = await listPostsForAnalysis(500)
     const out = []
     for (const id of clientIds) {
-      const posts = allPosts.filter((p) => p.client === id)
-      const stats = summarize(posts)
-      // precisa de um mínimo de amostra para valer a pena resumir
-      if (stats.count < 3) {
-        out.push({ client: id, skipped: true, count: stats.count })
-        continue
-      }
-      const brief = await writeBrief(getClient(id), stats)
-      await upsertLearnings(id, brief, {
-        count: stats.count,
-        byHour: stats.byHour,
-        byAngle: stats.byAngle,
-        byLayout: stats.byLayout,
-        byFormat: stats.byFormat,
-      })
-      out.push({ client: id, updated: true, count: stats.count })
+      out.push(await rebuildLearnings(id, allPosts))
     }
     res.status(200).json({ results: out })
   } catch (err) {
     res.status(502).json({ error: String(err?.message || err) })
   }
+}
+
+/**
+ * Reconstrói a memória de aprendizado de UM cliente a partir dos posts com
+ * métricas. Reutilizado pelo handler (cron/manual) e pela importação do
+ * Instagram (api/ig-import.js), pra depois de importar o histórico o brief já
+ * sair pronto. `allPosts` é opcional — se não vier, busca do banco.
+ */
+export async function rebuildLearnings(clientId, allPosts) {
+  const posts = (allPosts || (await listPostsForAnalysis(500))).filter((p) => p.client === clientId)
+  const stats = summarize(posts)
+  // precisa de um mínimo de amostra para valer a pena resumir
+  if (stats.count < 3) return { client: clientId, skipped: true, count: stats.count }
+  const brief = await writeBrief(getClient(clientId), stats)
+  await upsertLearnings(clientId, brief, {
+    count: stats.count,
+    byHour: stats.byHour,
+    byAngle: stats.byAngle,
+    byLayout: stats.byLayout,
+    byFormat: stats.byFormat,
+  })
+  return { client: clientId, updated: true, count: stats.count }
 }
 
 /** Traduz os rankings num texto legível e pede à IA um brief curto e acionável. */

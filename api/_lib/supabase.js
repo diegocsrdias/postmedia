@@ -69,6 +69,31 @@ export async function insertPost(row) {
   return data
 }
 
+/** Insere várias linhas em `posts` de uma vez. Devolve os ids/ig_media_id criados. */
+export async function insertPosts(rows) {
+  if (!rows || !rows.length) return []
+  const sb = supabase()
+  const { data, error } = await sb.from('posts').insert(rows).select('id, ig_media_id')
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return data || []
+}
+
+/**
+ * Conjunto dos ig_media_id já registrados de um cliente — usado pela importação
+ * do Instagram para não gravar o mesmo post duas vezes ao reimportar.
+ */
+export async function listClientMediaIds(client) {
+  const sb = supabase()
+  const { data, error } = await sb
+    .from('posts')
+    .select('ig_media_id')
+    .eq('client', client)
+    .not('ig_media_id', 'is', null)
+    .limit(2000)
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return new Set((data || []).map((r) => r.ig_media_id))
+}
+
 /** Posts já publicados (com id de mídia), mais recentes primeiro. */
 export async function listPublishedPosts(limit = 50) {
   const sb = supabase()
