@@ -20,7 +20,8 @@ function baseUrl() {
 let _browser = null
 
 async function getBrowser() {
-  if (_browser && _browser.isConnected()) return _browser
+  // puppeteer-core 25+ removeu isConnected() — agora é a propriedade `connected`
+  if (_browser && _browser.connected) return _browser
   // CHROME_PATH permite testar localmente com um Chrome instalado.
   const executablePath = process.env.CHROME_PATH || (await chromium.executablePath())
   _browser = await puppeteer.launch({
