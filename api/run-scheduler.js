@@ -1,5 +1,5 @@
 import { cronGuard } from './_lib/cron.js'
-import { listDueJobs, updateJob, uploadMedia } from './_lib/supabase.js'
+import { listDueJobs, updateJob, uploadMedia, reclaimStuckJobs } from './_lib/supabase.js'
 import { materializeAll } from './_lib/schedule.js'
 import { getClient } from './_lib/clients.js'
 import { generateCreatives } from './_lib/generate.js'
@@ -14,6 +14,11 @@ import { publishImage, publishCarousel } from './_lib/ig.js'
 //
 // Processa um lote pequeno por chamada para respeitar o tempo máximo da função.
 const MAX_PER_RUN = 3
+
+// Um job que ficou preso em `processing` por mais que isto (a função morreu
+// antes de terminar) é reclamado no começo de cada ciclo — evita o "Publicando…"
+// eterno. Folga confortável sobre o maxDuration (300s) desta função.
+const STUCK_MS = 10 * 60 * 1000
 
 // Este runner gera + renderiza (Chromium) + publica: precisa de mais fôlego que
 // os demais endpoints. Config em nível de função (tem precedência sobre o
@@ -30,6 +35,14 @@ export default async function handler(req, res) {
 
   const results = []
   try {
+    // recupera jobs presos em `processing` de execuções que morreram por timeout
+    // (senão ficariam "Publicando…" para sempre, nunca reprocessados)
+    try {
+      await reclaimStuckJobs(new Date(Date.now() - STUCK_MS).toISOString())
+    } catch {
+      /* não deixa a reclamação travar o restante do ciclo */
+    }
+
     // materializa as regras recorrentes nas próximas ocorrências (idempotente)
     let materialized = 0
     try {
@@ -98,7 +111,10 @@ async function runJob(job) {
     }
 
     let published
-    if (job.format === 'carousel') {
+    // Carrossel precisa de >= 2 telas. Se a IA devolveu só uma (acontece),
+    // degrada para um post de imagem única em vez de falhar o job inteiro —
+    // melhor publicar 1 tela do que não publicar nada.
+    if (job.format === 'carousel' && images.length >= 2) {
       const urls = []
       const now = new Date()
       for (let i = 0; i < images.length; i++) {

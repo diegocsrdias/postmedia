@@ -210,6 +210,39 @@ export async function updateJob(id, patch) {
   if (error) throw new Error('Supabase DB: ' + error.message)
 }
 
+/**
+ * Recupera jobs presos em `processing` (a função morreu por timeout/crash antes
+ * de finalizar, deixando o job em "Publicando…" para sempre). Rodado no início
+ * do runner: quem passou do limite e ainda tem tentativas volta pra fila
+ * (`pending`); quem já esgotou as tentativas vira `error` (visível na UI).
+ * `thresholdIso` = corte de `ran_at` (jobs mais antigos que isso são reclamados).
+ * Devolve { retried, failed }.
+ */
+export async function reclaimStuckJobs(thresholdIso, maxAttempts = 3) {
+  const sb = supabase()
+  // esgotou as tentativas → desiste e mostra o erro
+  const giveUp = await sb
+    .from('schedule')
+    .update({ status: 'error', last_error: 'Publicação interrompida (timeout do servidor)' })
+    .eq('status', 'processing')
+    .lt('ran_at', thresholdIso)
+    .gte('attempts', maxAttempts)
+    .select('id')
+  if (giveUp.error) throw new Error('Supabase DB: ' + giveUp.error.message)
+
+  // ainda tem tentativa → recoloca na fila para o próximo ciclo do cron
+  const retry = await sb
+    .from('schedule')
+    .update({ status: 'pending' })
+    .eq('status', 'processing')
+    .lt('ran_at', thresholdIso)
+    .lt('attempts', maxAttempts)
+    .select('id')
+  if (retry.error) throw new Error('Supabase DB: ' + retry.error.message)
+
+  return { retried: (retry.data || []).length, failed: (giveUp.data || []).length }
+}
+
 /** Lista os jobs de um cliente (mais recentes/futuros primeiro) para a UI. */
 export async function listJobs(client, limit = 50) {
   const sb = supabase()
