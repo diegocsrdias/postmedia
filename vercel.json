@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
+    "api/run-scheduler.js": {
+      "maxDuration": 300,
+      "memory": 2048
+    },
     "api/*.js": {
       "maxDuration": 60,
       "memory": 1024
