@@ -138,6 +138,45 @@ export function extractJsonArray(txt) {
   return JSON.parse(s)
 }
 
+/**
+ * Higieniza um texto gerado pela IA antes de ele virar arte.
+ * Principal alvo: a IA às vezes "dá ênfase" espaçando as letras de uma palavra
+ * ("P E R F E I Ç Ã O"), o que fica um desastre no card/vídeo. Junta qualquer
+ * corrida de 3+ letras isoladas separadas por espaço numa palavra só. Também
+ * normaliza espaços múltiplos. Não toca em números nem em palavras normais.
+ */
+export function sanitizeText(str) {
+  if (typeof str !== 'string') return str
+  let s = str
+  // "P E R F E I Ç Ã O" -> "PERFEIÇÃO" (mín. 3 letras isoladas). Os lookarounds
+  // garantem que só pega letras SOLTAS — não a última letra de uma palavra real
+  // ("Com P E R F" nunca vira "ComPERF") nem a primeira da seguinte.
+  s = s.replace(/(?<!\p{L})\p{L}(?: \p{L}){2,}(?!\p{L})/gu, (m) => m.replace(/ /g, ''))
+  // colapsa espaços repetidos que possam ter sobrado
+  s = s.replace(/[ \t]{2,}/g, ' ')
+  return s.trim()
+}
+
+/** Aplica sanitizeText a todo campo de texto de um item de criativo (f.*, caption, etc.). */
+export function sanitizeCreative(item) {
+  if (!item || typeof item !== 'object') return item
+  for (const k of ['caption', 'hashtags', 'vcap']) {
+    if (typeof item[k] === 'string') item[k] = sanitizeText(item[k])
+  }
+  if (item.f && typeof item.f === 'object') {
+    for (const k of Object.keys(item.f)) {
+      if (typeof item.f[k] === 'string') item.f[k] = sanitizeText(item.f[k])
+    }
+  }
+  return item
+}
+
+/** Sanitiza um array de itens de criativo (no lugar) e o devolve. */
+export function sanitizeItems(arr) {
+  if (Array.isArray(arr)) arr.forEach(sanitizeCreative)
+  return arr
+}
+
 /** Lê o corpo JSON de uma request da Vercel (Node runtime). */
 export async function readJson(req) {
   if (req.body && typeof req.body === 'object') return req.body

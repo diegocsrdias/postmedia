@@ -3,7 +3,7 @@
 // já com o viés de aprendizado (learnings), e devolve objetos no formato que o
 // CreativeCanvas espera renderizar (mesma forma de src/types Creative).
 
-import { chat, extractJsonArray } from './openai.js'
+import { chat, extractJsonArray, sanitizeCreative } from './openai.js'
 import { mixPrompt, themePrompt } from './prompts.js'
 import { safeLearnings } from './supabase.js'
 import { sampleDirections } from './directions.js'
@@ -24,6 +24,7 @@ function deriveVcap(layout, f = {}) {
 
 /** Normaliza um item cru da IA num "Creative" pronto para render. */
 function toCreative(x, i) {
+  sanitizeCreative(x)
   const f = { ...(x.f || {}) }
   return {
     layout: x.layout,

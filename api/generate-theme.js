@@ -1,4 +1,4 @@
-import { chat, extractJsonArray, preflight, readJson } from './_lib/openai.js'
+import { chat, extractJsonArray, preflight, readJson, sanitizeItems } from './_lib/openai.js'
 import { themePrompt } from './_lib/prompts.js'
 import { getClient } from './_lib/clients.js'
 import { safeLearnings } from './_lib/supabase.js'
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     const learnings = await safeLearnings(clientId || client.id)
     const { system, user } = themePrompt(count, t, client, learnings)
     const raw = await chat({ system, user, maxTokens: 2600 })
-    const arr = extractJsonArray(raw)
+    const arr = sanitizeItems(extractJsonArray(raw))
     if (!Array.isArray(arr) || !arr.length) throw new Error('empty')
     res.status(200).json({ items: arr.slice(0, count) })
   } catch (err) {

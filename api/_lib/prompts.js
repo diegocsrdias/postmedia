@@ -98,6 +98,13 @@ function persona(role, client) {
   return 'Você é ' + role + ' da marca "' + client.name + '", ' + client.business + '.'
 }
 
+// Regra de higiene de texto — a IA às vezes espaça as letras de uma palavra pra
+// "dar ênfase" (P E R F E I Ç Ã O), o que quebra o card/vídeo. Vale pra todos.
+const TEXT_HYGIENE =
+  '\n\nFORMA DO TEXTO: escreva palavras inteiras e reais, sem erros de digitação. ' +
+  'NUNCA separe as letras de uma palavra com espaços para dar ênfase (ex.: escreva "PERFEIÇÃO", jamais "P E R F E I Ç Ã O"). ' +
+  'Não use espaçamento, caixa alta exagerada nem caracteres decorativos como recurso de destaque.'
+
 /** Corpo comum do system prompt (oferta, tom, público, regras, playbook). */
 function brandContext(client) {
   return (
@@ -109,7 +116,8 @@ function brandContext(client) {
     client.audience +
     '.' +
     guardrails(client) +
-    brandPlaybook(client)
+    brandPlaybook(client) +
+    TEXT_HYGIENE
   )
 }
 
