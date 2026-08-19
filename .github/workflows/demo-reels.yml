@@ -54,6 +54,7 @@ jobs:
 
       - name: Instalar Chromium do Playwright
         working-directory: worker
+        timeout-minutes: 6
         run: npx playwright install --with-deps chromium
 
       # A fonte usada nas legendas (compose.mjs → /usr/share/fonts/.../DejaVuSans-Bold.ttf).
