@@ -56,6 +56,10 @@ jobs:
         working-directory: worker
         run: npx playwright install --with-deps chromium
 
+      # A fonte usada nas legendas (compose.mjs → /usr/share/fonts/.../DejaVuSans-Bold.ttf).
+      - name: Garantir fonte das legendas
+        run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core
+
       - name: Gerar (e opcionalmente publicar) o vídeo
         working-directory: worker
         env:

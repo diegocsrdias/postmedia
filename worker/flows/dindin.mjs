@@ -16,8 +16,9 @@ const login = [
   { fill: 'css:input[type="email"]', value: '$DINDIN_DEMO_EMAIL' },
   { fill: 'css:input[type="password"]', value: '$DINDIN_DEMO_PASSWORD' },
   { click: 'css:button[type="submit"]' },
-  // marcador estável de "logado": a barra de navegação principal (mobile).
-  { waitFor: 'css:[aria-label="Navegação principal"]', hold: 600 },
+  // marcador de "logado" VISÍVEL no mobile: o FAB do Quick-Add (o app tem uma
+  // sidebar desktop com aria-label duplicado, mas ela fica hidden no celular).
+  { waitFor: 'css:[aria-label="Abrir Quick-Add"]', hold: 600 },
 ]
 
 export const flows = [
@@ -34,7 +35,9 @@ export const flows = [
       // input do Quick-Add (classe .qa-input). O parser roda no onChange.
       { fill: 'css:.qa-input', value: 'Mercado 87,90 no débito', caption: 'Escreve como você fala', hold: 1600 },
       // "Salvar" só habilita quando a IA monta o lançamento (draft).
-      { click: 'text:Salvar', caption: 'e a IA lança sozinha ✨', hold: 1800 },
+      { click: 'text:Salvar', caption: 'e a IA lança sozinha ✨', hold: 1600 },
+      // abre a lista pra mostrar o lançamento já registrado.
+      { goto: '/transactions', hold: 400 },
       { waitFor: 'testid:transactions-list', caption: 'Pronto, já entrou', hold: 1800 },
       { caption: 'Comece com teste grátis · link na bio', hold: 2400 },
     ],
