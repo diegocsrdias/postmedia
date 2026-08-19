@@ -30,12 +30,17 @@ function interp(v) {
 export async function recordFlow(flow, { baseUrl, outDir }) {
   const base = baseUrl.replace(/\/$/, '')
   const browser = await chromium.launch()
+  // O vídeo é gravado no MESMO tamanho do viewport — se divergir, o Playwright
+  // desenha a página 1:1 no canto de um canvas maior e o resto fica cinza. O
+  // deviceScaleFactor melhora a nitidez do render (downscale) sem mudar o canvas.
+  const VW = 412
+  const VH = 892
   const context = await browser.newContext({
-    viewport: { width: 412, height: 892 },
-    deviceScaleFactor: 3,
+    viewport: { width: VW, height: VH },
+    deviceScaleFactor: 2,
     isMobile: true,
     hasTouch: true,
-    recordVideo: { dir: outDir, size: { width: 1236, height: 2676 } },
+    recordVideo: { dir: outDir, size: { width: VW, height: VH } },
   })
   const page = await context.newPage()
 
