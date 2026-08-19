@@ -9,6 +9,7 @@ import {
   fetchScheduleRecommendation,
   listRecurrences,
   listSchedule,
+  REEL_FLOWS,
 } from '../lib/api'
 import type { ReelFlow, ScheduleFormat, ScheduleJob, ScheduleRecommendation, ScheduleRule, StoryTarget } from '../lib/api'
 import { FONT, UI } from '../ui/theme'
@@ -357,15 +358,13 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
           {format === 'reels' ? (
             <>
               <Field label="Roteiro do vídeo">
-                <SegmentedControl<ReelFlow>
-                  value={flow}
-                  onChange={setFlow}
-                  options={[
-                    { value: 'auto', label: 'Sortear' },
-                    { value: 'scan-nota', label: 'Escanear nota' },
-                    { value: 'meta', label: 'Meta' },
-                  ]}
-                />
+                <select className="input" value={flow} onChange={(e) => setFlow(e.target.value as ReelFlow)}>
+                  {REEL_FLOWS.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="Onde publicar">
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

@@ -368,7 +368,17 @@ export async function importInstagram(client: string, max = 100): Promise<Import
 export type ScheduleFormat = 'feed' | 'carousel' | 'reels'
 
 /** Fluxo de demo do Reel: 'auto' (sorteia) ou o id de um roteiro do worker. */
-export type ReelFlow = 'auto' | 'scan-nota' | 'meta'
+export type ReelFlow = 'auto' | 'quick-add' | 'meta' | 'insights' | 'transacoes' | 'recorrencias'
+
+/** Rótulos dos roteiros de demo (espelham worker/flows/dindin.mjs). */
+export const REEL_FLOWS: { value: ReelFlow; label: string }[] = [
+  { value: 'auto', label: 'Sortear' },
+  { value: 'quick-add', label: 'Fala o gasto (IA lança)' },
+  { value: 'meta', label: 'Metas + projeção' },
+  { value: 'insights', label: 'Insights (gastos por categoria)' },
+  { value: 'transacoes', label: 'Transações organizadas' },
+  { value: 'recorrencias', label: 'Contas fixas no automático' },
+]
 
 export interface ScheduleJob {
   id: string
