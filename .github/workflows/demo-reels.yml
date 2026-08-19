@@ -15,9 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       flow:
-        description: 'Fluxo (ex.: scan-nota, meta, auto)'
+        description: 'Fluxo (ex.: quick-add, meta, auto)'
         required: true
-        default: 'scan-nota'
+        default: 'quick-add'
       targets:
         description: 'Onde publicar (reels, story ou reels,story)'
         required: true

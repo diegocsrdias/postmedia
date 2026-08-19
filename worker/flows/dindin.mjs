@@ -1,49 +1,58 @@
 // Roteiros de demonstração do ControleDinDin (declarativos).
 //
-// Os seletores 'testid:*' são o CONTRATO que o app precisa expor no fonte
-// (data-testid nesses elementos). Ver ../README.md para a lista completa.
+// Seletores confirmados no fonte do app (github.com/diegocsrdias/Financas,
+// finance-control/src). O engine aceita 'testid:', 'css:' e 'text:' — usamos
+// testid quando o app já expõe um, e css/rota quando não. Navegação é por ROTA
+// real (/goals, /forecast), então dá pra ir direto com `goto` após o login.
 //
-// As legendas ('caption') são o texto que aparece na tela do vídeo. Regra do
-// playbook: só afirmar FATOS APROVADOS — nada de número/claim inventado aqui.
+// As legendas ('caption') são o texto na tela do vídeo. Regra do playbook: só
+// FATOS APROVADOS — nada de número/claim inventado. Por isso o CTA não afirma
+// duração de trial (confirme e ajuste se quiser citar "X dias grátis").
 // `$DINDIN_DEMO_EMAIL` / `$DINDIN_DEMO_PASSWORD` vêm das variáveis de ambiente.
 
-/** Login comum a todos os fluxos (usa a conta DEMO, com dados semeados/seguros). */
+/** Login comum (conta DEMO com dados falsos e seguros). */
 const login = [
   { goto: '/login', hold: 800 },
-  { fill: 'testid:login-email', value: '$DINDIN_DEMO_EMAIL' },
-  { fill: 'testid:login-password', value: '$DINDIN_DEMO_PASSWORD' },
-  { click: 'testid:login-submit' },
-  { waitFor: 'testid:dashboard', hold: 600 },
+  { fill: 'css:input[type="email"]', value: '$DINDIN_DEMO_EMAIL' },
+  { fill: 'css:input[type="password"]', value: '$DINDIN_DEMO_PASSWORD' },
+  { click: 'css:button[type="submit"]' },
+  // marcador estável de "logado": a barra de navegação principal (mobile).
+  { waitFor: 'css:[aria-label="Navegação principal"]', hold: 600 },
 ]
 
 export const flows = [
   {
-    id: 'scan-nota',
-    title: 'Fotografe a nota, a IA lança',
-    // legenda do post (não é o texto na tela) — CTA de fato aprovado
+    id: 'quick-add',
+    title: 'Fala o gasto, a IA lança',
     caption:
-      'Cansado de digitar cada gasto? No Controle DinDin você fotografa a nota e a IA lança sozinha. 🐷\n\nTeste grátis 10 dias, sem cartão. Link na bio.\n\n#ControleDinDin',
+      'Chega de planilha: você escreve o gasto em linguagem normal e o Controle DinDin lança sozinho. 🐷\n\nComece com teste grátis. Link na bio.\n\n#ControleDinDin',
     login,
     steps: [
       { caption: 'Seus gastos, no controle', hold: 1400 },
-      { click: 'testid:nav-add', caption: 'Toca em adicionar', hold: 1000 },
-      { click: 'testid:add-scan', caption: 'Fotografa a nota fiscal', hold: 1200 },
-      { waitFor: 'testid:scan-processing', caption: 'A IA lê a nota…', hold: 1400 },
-      { waitFor: 'testid:scan-result', caption: 'e lança sozinha ✨', hold: 1800 },
-      { caption: 'Teste grátis 10 dias · sem cartão', hold: 2400 },
+      // FAB central abre o Quick-Add (aria-label confirmado no BottomNav).
+      { click: 'css:[aria-label="Abrir Quick-Add"]', caption: 'Toca em adicionar', hold: 1000 },
+      // input do Quick-Add (classe .qa-input). O parser roda no onChange.
+      { fill: 'css:.qa-input', value: 'Mercado 87,90 no débito', caption: 'Escreve como você fala', hold: 1600 },
+      // "Salvar" só habilita quando a IA monta o lançamento (draft).
+      { click: 'text:Salvar', caption: 'e a IA lança sozinha ✨', hold: 1800 },
+      { waitFor: 'testid:transactions-list', caption: 'Pronto, já entrou', hold: 1800 },
+      { caption: 'Comece com teste grátis · link na bio', hold: 2400 },
     ],
   },
   {
     id: 'meta',
     title: 'Meta com projeção automática',
     caption:
-      'Defina uma meta e veja a projeção do seu saldo. Simples assim. 🐷\n\nTeste grátis 10 dias, sem cartão. Link na bio.\n\n#ControleDinDin',
+      'Defina uma meta e veja a projeção do seu saldo ao longo do tempo. 🐷\n\nComece com teste grátis. Link na bio.\n\n#ControleDinDin',
     login,
     steps: [
-      { goto: '/metas', caption: 'Cria uma meta', hold: 1400 },
-      { click: 'testid:meta-nova', caption: 'Escolhe o objetivo', hold: 1200 },
-      { waitFor: 'testid:meta-projecao', caption: 'com projeção automática de saldo', hold: 1800 },
-      { caption: 'Teste grátis 10 dias · sem cartão', hold: 2400 },
+      // rota real das metas (o drawer navega pra /goals).
+      { goto: '/goals', caption: 'Suas metas', hold: 1400 },
+      { waitFor: 'testid:goals-new-cta', caption: 'Crie um objetivo', hold: 1400 },
+      // rota real da projeção de saldo.
+      { goto: '/forecast', caption: 'com projeção automática de saldo', hold: 1400 },
+      { waitFor: 'testid:forecast-headline-stats', hold: 1800 },
+      { caption: 'Comece com teste grátis · link na bio', hold: 2400 },
     ],
   },
 ]
