@@ -1,23 +1,25 @@
 // Roteiros de demonstração do ControleDinDin (declarativos).
 //
 // Seletores confirmados no fonte do app (github.com/diegocsrdias/Financas,
-// finance-control/src). O engine aceita 'testid:', 'css:' e 'text:' — usamos
-// testid quando o app já expõe um, e css/rota quando não. Navegação é por ROTA
-// real (/goals, /forecast), então dá pra ir direto com `goto` após o login.
+// finance-control/src) e no app rodando com a conta demo. O engine aceita
+// 'testid:', 'css:' e 'text:'; navegação é por ROTA real, então `goto` vai
+// direto após o login. Só features com conteúdo na conta demo entram (reservas
+// e parcelamentos estão vazios — ficam de fora).
 //
-// As legendas ('caption') são o texto na tela do vídeo. Regra do playbook: só
-// FATOS APROVADOS — nada de número/claim inventado. Por isso o CTA não afirma
-// duração de trial (confirme e ajuste se quiser citar "X dias grátis").
+// Legendas ('caption') = texto na tela. Regra do playbook: só FATOS APROVADOS —
+// nada de número/claim inventado (por isso o CTA não cita duração de trial).
 // `$DINDIN_DEMO_EMAIL` / `$DINDIN_DEMO_PASSWORD` vêm das variáveis de ambiente.
+
+const CTA = 'Comece com teste grátis · link na bio'
 
 /** Login comum (conta DEMO com dados falsos e seguros). */
 const login = [
-  { goto: '/login', hold: 800 },
+  { goto: '/login', hold: 700 },
   { fill: 'css:input[type="email"]', value: '$DINDIN_DEMO_EMAIL' },
   { fill: 'css:input[type="password"]', value: '$DINDIN_DEMO_PASSWORD' },
   { click: 'css:button[type="submit"]' },
-  // marcador de "logado" VISÍVEL no mobile: o FAB do Quick-Add (o app tem uma
-  // sidebar desktop com aria-label duplicado, mas ela fica hidden no celular).
+  // marcador de "logado" VISÍVEL no mobile: o FAB do Quick-Add (a sidebar de
+  // desktop tem aria-label duplicado, mas fica hidden no celular).
   { waitFor: 'css:[aria-label="Abrir Quick-Add"]', hold: 600 },
 ]
 
@@ -30,16 +32,12 @@ export const flows = [
     login,
     steps: [
       { caption: 'Seus gastos, no controle', hold: 1400 },
-      // FAB central abre o Quick-Add (aria-label confirmado no BottomNav).
       { click: 'css:[aria-label="Abrir Quick-Add"]', caption: 'Toca em adicionar', hold: 1000 },
-      // input do Quick-Add (classe .qa-input). O parser roda no onChange.
       { fill: 'css:.qa-input', value: 'Mercado 87,90 no débito', caption: 'Escreve como você fala', hold: 1600 },
-      // "Salvar" só habilita quando a IA monta o lançamento (draft).
-      { click: 'text:Salvar', caption: 'e a IA lança sozinha ✨', hold: 1600 },
-      // abre a lista pra mostrar o lançamento já registrado.
+      { click: 'text:Salvar', caption: 'e a IA lança sozinha', hold: 1500 },
       { goto: '/transactions', hold: 400 },
-      { waitFor: 'testid:transactions-list', caption: 'Pronto, já entrou', hold: 1800 },
-      { caption: 'Comece com teste grátis · link na bio', hold: 2400 },
+      { waitFor: 'testid:transactions-list', caption: 'Pronto, já entrou', hold: 2000 },
+      { caption: CTA, hold: 2400 },
     ],
   },
   {
@@ -49,13 +47,52 @@ export const flows = [
       'Defina uma meta e veja a projeção do seu saldo ao longo do tempo. 🐷\n\nComece com teste grátis. Link na bio.\n\n#ControleDinDin',
     login,
     steps: [
-      // rota real das metas (o drawer navega pra /goals).
-      { goto: '/goals', caption: 'Suas metas', hold: 1400 },
-      { waitFor: 'testid:goals-new-cta', caption: 'Crie um objetivo', hold: 1400 },
-      // rota real da projeção de saldo.
-      { goto: '/forecast', caption: 'com projeção automática de saldo', hold: 1400 },
-      { waitFor: 'testid:forecast-headline-stats', hold: 1800 },
-      { caption: 'Comece com teste grátis · link na bio', hold: 2400 },
+      { goto: '/goals', caption: 'Suas metas', hold: 1600 },
+      { waitFor: 'testid:goals-new-cta', caption: 'Defina um objetivo', hold: 2000 },
+      { goto: '/forecast', caption: 'e veja a projeção do saldo', hold: 1600 },
+      { waitFor: 'testid:forecast-headline-stats', hold: 2200 },
+      { caption: CTA, hold: 2400 },
+    ],
+  },
+  {
+    id: 'insights',
+    title: 'Pra onde vai seu dinheiro',
+    caption:
+      'A IA lê seus hábitos e mostra onde o dinheiro está indo — sem você montar relatório nenhum. 🐷\n\nComece com teste grátis. Link na bio.\n\n#ControleDinDin',
+    login,
+    steps: [
+      { goto: '/insights', caption: 'Pra onde vai seu dinheiro?', hold: 1600 },
+      { waitFor: 'testid:category-radar', caption: 'A IA lê seus hábitos', hold: 1800 },
+      // desliza até o radar de categorias (que tem dado) — mostra a distribuição.
+      { click: 'testid:category-radar', caption: 'e mostra onde você mais gasta', hold: 2400 },
+      { caption: CTA, hold: 2400 },
+    ],
+  },
+  {
+    id: 'transacoes',
+    title: 'Tudo organizado por dia',
+    caption:
+      'Cada lançamento no lugar, agrupado por dia, com resumo do período na hora. 🐷\n\nComece com teste grátis. Link na bio.\n\n#ControleDinDin',
+    login,
+    steps: [
+      { goto: '/transactions', caption: 'Tudo que entra e sai', hold: 1600 },
+      { waitFor: 'testid:period-summary-strip', caption: 'organizado por dia', hold: 2000 },
+      { click: 'text:Despesas', caption: 'e filtra num toque', hold: 1800 },
+      { waitFor: 'testid:transactions-list', hold: 1600 },
+      { caption: CTA, hold: 2400 },
+    ],
+  },
+  {
+    id: 'recorrencias',
+    title: 'Contas fixas no automático',
+    caption:
+      'Aluguel, assinaturas, salário: cadastra uma vez e entra sozinho todo mês. 🐷\n\nComece com teste grátis. Link na bio.\n\n#ControleDinDin',
+    login,
+    steps: [
+      { goto: '/recurring', caption: 'Contas que se repetem?', hold: 1600 },
+      { waitFor: 'text:Transações Recorrentes', caption: 'Cadastra uma vez', hold: 2000 },
+      { caption: 'e entra sozinho todo mês', hold: 2200 },
+      { caption: CTA, hold: 2400 },
     ],
   },
 ]
