@@ -10,7 +10,7 @@ import {
   listRecurrences,
   listSchedule,
 } from '../lib/api'
-import type { ScheduleFormat, ScheduleJob, ScheduleRecommendation, ScheduleRule } from '../lib/api'
+import type { ReelFlow, ScheduleFormat, ScheduleJob, ScheduleRecommendation, ScheduleRule, StoryTarget } from '../lib/api'
 import { FONT, UI } from '../ui/theme'
 import { Badge, Button, Card, EmptyState, HighlightCard, SectionHeader, SegmentedControl, Skeleton, Toast, useToast } from '../ui/components'
 
@@ -52,6 +52,26 @@ const STATUS_LABEL: Record<string, string> = {
   canceled: 'Cancelado',
 }
 
+const FLOW_LABEL: Record<string, string> = { auto: 'Sortear', 'scan-nota': 'Escanear nota', meta: 'Meta' }
+const TARGET_LABEL: Record<string, string> = { reels: 'Reels', story: 'Story' }
+
+/** Descreve o conteúdo de um Reel agendado ("Reel · Reels + Story · Escanear nota"). */
+function describeReels(item: { flow?: string | null; targets?: string[] | null }): string {
+  const targets = (item.targets && item.targets.length ? item.targets : ['reels']).map((t) => TARGET_LABEL[t] || t).join(' + ')
+  const roteiro = item.flow && item.flow !== 'auto' ? ` · ${FLOW_LABEL[item.flow] || item.flow}` : ' · sorteia o roteiro'
+  return `Reel · ${targets}${roteiro}`
+}
+
+/** Rótulo curto do conteúdo de um job/regra, conforme o formato. */
+function describeContent(item: { format: string; slides?: number; flow?: string | null; targets?: string[] | null }): string {
+  if (item.format === 'reels') return describeReels(item)
+  if (item.format === 'carousel') return `Carrossel · ${item.slides} telas`
+  return 'Feed'
+}
+
+/** Emoji do formato. */
+const formatIcon = (format: string) => (format === 'reels' ? '🎬' : format === 'carousel' ? '📚' : '🖼️')
+
 export function ScheduleView({ client }: { client: ClientConfig }) {
   const { toast, flash } = useToast()
   const [jobs, setJobs] = useState<ScheduleJob[]>([])
@@ -67,6 +87,8 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
   const [slides, setSlides] = useState(3)
   const [theme, setTheme] = useState('')
   const [imageMode, setImageMode] = useState<'none' | 'editorial' | 'promo'>('none')
+  const [flow, setFlow] = useState<ReelFlow>('auto') // reels: qual roteiro de demo
+  const [reelTargets, setReelTargets] = useState<StoryTarget[]>(['reels']) // reels: onde publicar
   const [saving, setSaving] = useState(false)
   const [rules, setRules] = useState<ScheduleRule[]>([])
 
@@ -93,6 +115,9 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
     setTimes((prev) => prev.map((t, idx) => (idx === i ? v : t)))
   const addTime = () => setTimes((prev) => [...prev, '12:00'])
   const removeTime = (i: number) => setTimes((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev))
+  // alvos do Reel: ao menos um sempre marcado
+  const toggleTarget = (t: StoryTarget) =>
+    setReelTargets((prev) => (prev.includes(t) ? (prev.length > 1 ? prev.filter((x) => x !== t) : prev) : [...prev, t]))
 
   useEffect(() => {
     void load()
@@ -119,6 +144,16 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
     if (saving) return
     setSaving(true)
     try {
+      const isReels = format === 'reels'
+      if (isReels && !reelTargets.length) {
+        flash('Escolha ao menos um alvo (Reels ou Story)')
+        return
+      }
+      // campos específicos de reels vs. imagem (o backend ignora os que não usa)
+      const contentFields = isReels
+        ? { flow, targets: reelTargets }
+        : { slides: format === 'carousel' ? slides : 1, theme: theme.trim() || undefined, imageMode }
+
       if (mode === 'recurring') {
         const clean = times.filter((t) => /^\d{1,2}:\d{2}$/.test(t))
         if (!clean.length) {
@@ -128,9 +163,7 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
         const { materialized } = await createRecurrence({
           client: client.id,
           format,
-          slides: format === 'carousel' ? slides : 1,
-          theme: theme.trim() || undefined,
-          imageMode,
+          ...contentFields,
           weekdays,
           times: clean,
         })
@@ -145,11 +178,9 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
           client: client.id,
           scheduledFor: scheduledFor.toISOString(),
           format,
-          slides: format === 'carousel' ? slides : 1,
-          theme: theme.trim() || undefined,
-          imageMode,
+          ...contentFields,
         })
-        flash('Post agendado! 📅')
+        flash(isReels ? 'Reel agendado! 🎬' : 'Post agendado! 📅')
       }
       setTheme('')
       void load()
@@ -317,36 +348,75 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
               options={[
                 { value: 'feed', label: 'Feed (1 imagem)' },
                 { value: 'carousel', label: 'Carrossel' },
+                { value: 'reels', label: '🎬 Reels' },
               ]}
             />
           </Field>
-          {format === 'carousel' && (
-            <Field label="Nº de telas">
-              <input
-                type="number"
-                min={2}
-                max={10}
-                className="input"
-                value={slides}
-                onChange={(e) => setSlides(Math.min(10, Math.max(2, Number(e.target.value) || 3)))}
-              />
-            </Field>
+
+          {/* REELS: vídeo de demonstração do app real (gerado no servidor) */}
+          {format === 'reels' ? (
+            <>
+              <Field label="Roteiro do vídeo">
+                <SegmentedControl<ReelFlow>
+                  value={flow}
+                  onChange={setFlow}
+                  options={[
+                    { value: 'auto', label: 'Sortear' },
+                    { value: 'scan-nota', label: 'Escanear nota' },
+                    { value: 'meta', label: 'Meta' },
+                  ]}
+                />
+              </Field>
+              <Field label="Onde publicar">
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {([['reels', 'Reels'], ['story', 'Story']] as [StoryTarget, string][]).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={'chip' + (reelTargets.includes(value) ? ' on' : '')}
+                      onClick={() => toggleTarget(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            </>
+          ) : (
+            <>
+              {format === 'carousel' && (
+                <Field label="Nº de telas">
+                  <input
+                    type="number"
+                    min={2}
+                    max={10}
+                    className="input"
+                    value={slides}
+                    onChange={(e) => setSlides(Math.min(10, Math.max(2, Number(e.target.value) || 3)))}
+                  />
+                </Field>
+              )}
+              <Field label="Fundo por IA">
+                <SegmentedControl value={imageMode} onChange={setImageMode} options={imageModes} />
+              </Field>
+              <Field label="Tema (opcional)">
+                <input
+                  className="input"
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                  placeholder="Deixe vazio para a IA escolher"
+                />
+              </Field>
+            </>
           )}
-          <Field label="Fundo por IA">
-            <SegmentedControl value={imageMode} onChange={setImageMode} options={imageModes} />
-          </Field>
-          <Field label="Tema (opcional)">
-            <input
-              className="input"
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              placeholder="Deixe vazio para a IA escolher"
-            />
-          </Field>
         </div>
         <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end' }}>
           <Button loading={saving} onClick={() => void submit()}>
-            {mode === 'recurring' ? '🔁 Criar recorrência' : '📅 Agendar publicação'}
+            {mode === 'recurring'
+              ? '🔁 Criar recorrência'
+              : format === 'reels'
+                ? '🎬 Agendar Reel'
+                : '📅 Agendar publicação'}
           </Button>
         </div>
       </Card>
@@ -414,7 +484,7 @@ function JobRow({ job, onCancel }: { job: ScheduleJob; onCancel: () => void }) {
             flex: 'none',
           }}
         >
-          {job.format === 'carousel' ? '📚' : '🖼️'}
+          {formatIcon(job.format)}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 150 }}>
           <span style={{ fontWeight: 800, fontSize: 15, color: UI.ink }}>
@@ -422,7 +492,7 @@ function JobRow({ job, onCancel }: { job: ScheduleJob; onCancel: () => void }) {
             {when.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </span>
           <span style={{ fontSize: 12, color: UI.inkMuted2 }}>
-            {job.format === 'carousel' ? `Carrossel · ${job.slides} telas` : 'Feed'}
+            {describeContent(job)}
             {job.theme ? ` · "${job.theme}"` : ''}
           </span>
         </div>
@@ -463,7 +533,7 @@ function RuleRow({ rule, onDelete }: { rule: ScheduleRule; onDelete: () => void 
         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 180 }}>
           <span style={{ fontWeight: 800, fontSize: 15, color: UI.ink }}>{describeRule(rule)}</span>
           <span style={{ fontSize: 12, color: UI.inkMuted2 }}>
-            {rule.format === 'carousel' ? `Carrossel · ${rule.slides} telas` : 'Feed'}
+            {describeContent(rule)}
             {rule.theme ? ` · "${rule.theme}"` : ''}
           </span>
         </div>

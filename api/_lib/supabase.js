@@ -225,6 +225,7 @@ export async function reclaimStuckJobs(thresholdIso, maxAttempts = 3) {
     .from('schedule')
     .update({ status: 'error', last_error: 'Publicação interrompida (timeout do servidor)' })
     .eq('status', 'processing')
+    .neq('format', 'reels') // reels rodam no Actions e são fechados pelo callback
     .lt('ran_at', thresholdIso)
     .gte('attempts', maxAttempts)
     .select('id')
@@ -235,12 +236,33 @@ export async function reclaimStuckJobs(thresholdIso, maxAttempts = 3) {
     .from('schedule')
     .update({ status: 'pending' })
     .eq('status', 'processing')
+    .neq('format', 'reels')
     .lt('ran_at', thresholdIso)
     .lt('attempts', maxAttempts)
     .select('id')
   if (retry.error) throw new Error('Supabase DB: ' + retry.error.message)
 
   return { retried: (retry.data || []).length, failed: (giveUp.data || []).length }
+}
+
+/**
+ * Reels ficam em `processing` enquanto o GitHub Actions gera o vídeo (minutos) e
+ * são fechados pelo callback /api/schedule-complete. Se o callback nunca chega
+ * (Action falhou/cancelado) o job passa do prazo — aqui marcamos como erro para
+ * não ficar "Publicando…" eterno. NÃO reenfileira (evita gerar/postar o vídeo
+ * duas vezes). `thresholdIso` = corte de `ran_at` (bem folgado, ~45min).
+ */
+export async function reclaimStuckReels(thresholdIso) {
+  const sb = supabase()
+  const { data, error } = await sb
+    .from('schedule')
+    .update({ status: 'error', last_error: 'Geração do Reel não retornou a tempo (Actions)' })
+    .eq('status', 'processing')
+    .eq('format', 'reels')
+    .lt('ran_at', thresholdIso)
+    .select('id')
+  if (error) throw new Error('Supabase DB: ' + error.message)
+  return { failed: (data || []).length }
 }
 
 /** Lista os jobs de um cliente (mais recentes/futuros primeiro) para a UI. */

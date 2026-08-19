@@ -1,11 +1,12 @@
 import { cronGuard } from './_lib/cron.js'
-import { listDueJobs, updateJob, uploadMedia, reclaimStuckJobs } from './_lib/supabase.js'
+import { listDueJobs, updateJob, uploadMedia, reclaimStuckJobs, reclaimStuckReels } from './_lib/supabase.js'
 import { materializeAll } from './_lib/schedule.js'
 import { getClient } from './_lib/clients.js'
 import { generateCreatives } from './_lib/generate.js'
 import { generateBackground } from './_lib/image.js'
 import { renderCreatives, closeBrowser } from './_lib/render.js'
 import { publishImage, publishCarousel } from './_lib/ig.js'
+import { dispatchReel } from './_lib/github.js'
 
 // RUNNER do agendador (piloto automático). Acionado por cron (ou manualmente).
 // Para cada job vencido: GERA o conteúdo (com aprendizado) → RENDERIZA a arte no
@@ -19,6 +20,10 @@ const MAX_PER_RUN = 3
 // antes de terminar) é reclamado no começo de cada ciclo — evita o "Publicando…"
 // eterno. Folga confortável sobre o maxDuration (300s) desta função.
 const STUCK_MS = 10 * 60 * 1000
+
+// Reels rodam no GitHub Actions (gerar vídeo leva minutos) e são fechados pelo
+// callback. Só marcamos erro se passar MUITO do prazo — sinal de Action perdido.
+const REELS_STUCK_MS = 45 * 60 * 1000
 
 // Este runner gera + renderiza (Chromium) + publica: precisa de mais fôlego que
 // os demais endpoints. Config em nível de função (tem precedência sobre o
@@ -39,6 +44,7 @@ export default async function handler(req, res) {
     // (senão ficariam "Publicando…" para sempre, nunca reprocessados)
     try {
       await reclaimStuckJobs(new Date(Date.now() - STUCK_MS).toISOString())
+      await reclaimStuckReels(new Date(Date.now() - REELS_STUCK_MS).toISOString())
     } catch {
       /* não deixa a reclamação travar o restante do ciclo */
     }
@@ -51,9 +57,15 @@ export default async function handler(req, res) {
       /* não deixa a materialização travar a publicação dos jobs já prontos */
     }
 
+    // Base pública desta app, usada para montar o callback dos Reels (o Actions
+    // chama /api/schedule-complete ao terminar). Prioriza a env explícita.
+    const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0]
+    const host = req.headers['x-forwarded-host'] || req.headers.host || ''
+    const baseUrl = (process.env.POSTMEDIA_BASE_URL || (host ? `${proto}://${host}` : '')).replace(/\/$/, '')
+
     const due = await listDueJobs(new Date().toISOString(), MAX_PER_RUN)
     for (const job of due) {
-      results.push(await runJob(job))
+      results.push(await runJob(job, { baseUrl }))
     }
     await closeBrowser()
     res.status(200).json({ processed: results.length, materialized, results })
@@ -64,13 +76,33 @@ export default async function handler(req, res) {
   }
 }
 
-async function runJob(job) {
+async function runJob(job, { baseUrl } = {}) {
   // marca em processamento (evita reprocessar se o cron reentrar)
   await updateJob(job.id, {
     status: 'processing',
     attempts: (job.attempts || 0) + 1,
     ran_at: new Date().toISOString(),
   })
+
+  // REELS: não geramos vídeo aqui (pesado). Delegamos ao GitHub Actions e
+  // deixamos o job em `processing` — o callback /api/schedule-complete o fecha.
+  if (job.format === 'reels') {
+    try {
+      await dispatchReel({
+        jobId: job.id,
+        client: job.client,
+        flow: job.flow || 'auto',
+        targets: Array.isArray(job.targets) ? job.targets : [],
+        callbackUrl: baseUrl ? `${baseUrl}/api/schedule-complete` : '',
+      })
+      return { id: job.id, ok: true, dispatched: true }
+    } catch (err) {
+      const msg = String(err?.message || err)
+      await updateJob(job.id, { status: 'error', last_error: msg.slice(0, 500) })
+      return { id: job.id, ok: false, error: msg }
+    }
+  }
+
   try {
     const client = getClient(job.client)
     const n = job.format === 'carousel' ? Math.max(2, job.slides || 3) : 1

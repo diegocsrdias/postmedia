@@ -57,10 +57,22 @@ export function occurrencesFor(rule, { nowMs = Date.now(), horizonHours = 48 } =
   return out
 }
 
+/**
+ * Normaliza os campos de um Reel vindos do corpo da requisição.
+ * `flow` vira um slug (default 'auto' = worker sorteia). `targets` fica só com
+ * 'reels'/'story' (default ['reels']).
+ */
+export function reelsFields(body = {}) {
+  const flow = String(body.flow || 'auto').trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || 'auto'
+  const raw = Array.isArray(body.targets) ? body.targets : []
+  const targets = [...new Set(raw.map((t) => String(t)).filter((t) => t === 'reels' || t === 'story'))]
+  return { flow, targets: targets.length ? targets : ['reels'] }
+}
+
 /** Monta a linha de job a partir de uma regra e um horário. */
 function jobFromRule(rule, scheduledForIso) {
-  const format = rule.format === 'carousel' ? 'carousel' : 'feed'
-  return {
+  const format = ['carousel', 'reels'].includes(rule.format) ? rule.format : 'feed'
+  const base = {
     client: rule.client,
     rule_id: rule.id,
     scheduled_for: scheduledForIso,
@@ -72,6 +84,12 @@ function jobFromRule(rule, scheduledForIso) {
     image_mode: rule.image_mode || 'none',
     status: 'pending',
   }
+  if (format === 'reels') {
+    // Reels: o worker gera o vídeo do fluxo escolhido e publica nos alvos.
+    base.flow = rule.flow || 'auto'
+    base.targets = Array.isArray(rule.targets) && rule.targets.length ? rule.targets : ['reels']
+  }
+  return base
 }
 
 /**

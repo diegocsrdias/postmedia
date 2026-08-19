@@ -1,9 +1,13 @@
 # Gera um vídeo de demonstração do app real e publica como Reels/Story.
-# Disparo MANUAL (workflow_dispatch) — nada de cron ainda, pra não postar sozinho
-# antes de você validar. Quando estiver redondo, é só adicionar um `schedule:`.
+#
+# Dois gatilhos:
+#   • workflow_dispatch    — disparo MANUAL, pra você validar (não publica sem marcar).
+#   • repository_dispatch  — disparo AUTOMÁTICO do agendador (postmedia/run-scheduler),
+#     event_type 'schedule-reel'. Sempre publica e faz callback pra fechar o job.
 #
 # Segredos necessários (Settings -> Secrets and variables -> Actions):
 #   DINDIN_DEMO_URL, DINDIN_DEMO_EMAIL, DINDIN_DEMO_PASSWORD, POSTMEDIA_BASE_URL
+#   CRON_SECRET  (mesmo valor do CRON_SECRET no Vercel — autentica o callback)
 
 name: demo-reels
 
@@ -11,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       flow:
-        description: 'Fluxo (ex.: scan-nota, meta)'
+        description: 'Fluxo (ex.: scan-nota, meta, auto)'
         required: true
         default: 'scan-nota'
       targets:
@@ -22,10 +26,21 @@ on:
         description: 'Publicar de verdade?'
         type: boolean
         default: false
+  repository_dispatch:
+    types: [schedule-reel]
 
 jobs:
   render:
     runs-on: ubuntu-latest
+    # Valores efetivos: vêm do client_payload (agendador) ou dos inputs (manual).
+    env:
+      FLOW: ${{ github.event.client_payload.flow || github.event.inputs.flow || 'scan-nota' }}
+      TARGETS: ${{ github.event.client_payload.targets || github.event.inputs.targets || 'reels' }}
+      CLIENT: ${{ github.event.client_payload.client || 'dindin' }}
+      JOB_ID: ${{ github.event.client_payload.job_id || '' }}
+      CALLBACK: ${{ github.event.client_payload.callback || '' }}
+      # Automático sempre publica; manual só quando você marca a caixa.
+      DO_PUBLISH: ${{ github.event_name == 'repository_dispatch' || github.event.inputs.publish == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,15 +63,17 @@ jobs:
           DINDIN_DEMO_EMAIL: ${{ secrets.DINDIN_DEMO_EMAIL }}
           DINDIN_DEMO_PASSWORD: ${{ secrets.DINDIN_DEMO_PASSWORD }}
           POSTMEDIA_BASE_URL: ${{ secrets.POSTMEDIA_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          node record-demo.mjs \
-            --flow "${{ github.event.inputs.flow }}" \
-            --targets "${{ github.event.inputs.targets }}" \
-            ${{ github.event.inputs.publish == 'true' && '--publish' || '' }}
+          ARGS=(--flow "$FLOW" --targets "$TARGETS" --client "$CLIENT")
+          if [ -n "$JOB_ID" ]; then ARGS+=(--job-id "$JOB_ID"); fi
+          if [ -n "$CALLBACK" ]; then ARGS+=(--callback "$CALLBACK"); fi
+          if [ "$DO_PUBLISH" = "true" ]; then ARGS+=(--publish); fi
+          node record-demo.mjs "${ARGS[@]}"
 
       - name: Guardar o vídeo como artefato (pra você conferir antes de postar)
         uses: actions/upload-artifact@v4
         with:
-          name: demo-${{ github.event.inputs.flow }}
+          name: demo-${{ env.FLOW }}
           path: worker/out/*.mp4
           if-no-files-found: warn

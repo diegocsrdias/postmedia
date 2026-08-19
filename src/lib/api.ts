@@ -365,7 +365,10 @@ export async function importInstagram(client: string, max = 100): Promise<Import
    Agendador (autopilot)
    ============================================================ */
 
-export type ScheduleFormat = 'feed' | 'carousel'
+export type ScheduleFormat = 'feed' | 'carousel' | 'reels'
+
+/** Fluxo de demo do Reel: 'auto' (sorteia) ou o id de um roteiro do worker. */
+export type ReelFlow = 'auto' | 'scan-nota' | 'meta'
 
 export interface ScheduleJob {
   id: string
@@ -378,6 +381,8 @@ export interface ScheduleJob {
   angle: string | null
   layout: string | null
   image_mode: string | null
+  flow: string | null
+  targets: StoryTarget[] | null
   status: 'pending' | 'processing' | 'done' | 'error' | 'canceled' | string
   attempts: number
   last_error: string | null
@@ -393,6 +398,8 @@ export interface ScheduleInput {
   theme?: string
   angle?: string
   imageMode?: 'none' | 'editorial' | 'promo'
+  flow?: ReelFlow // reels
+  targets?: StoryTarget[] // reels
 }
 
 /** Agenda um novo post automático. */
@@ -423,6 +430,8 @@ export interface ScheduleRule {
   angle: string | null
   layout: string | null
   image_mode: string | null
+  flow: string | null
+  targets: StoryTarget[] | null
   weekdays: number[] // 0=dom … 6=sáb; vazio = todo dia
   times: string[] // ['09:00','18:00']
   timezone: string
@@ -434,6 +443,8 @@ export interface RecurrenceInput {
   slides?: number
   theme?: string
   imageMode?: 'none' | 'editorial' | 'promo'
+  flow?: ReelFlow // reels
+  targets?: StoryTarget[] // reels
   weekdays: number[]
   times: string[]
 }

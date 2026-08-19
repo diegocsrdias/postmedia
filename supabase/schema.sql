@@ -76,12 +76,18 @@ create table if not exists public.schedule (
 
   -- quando publicar e o que publicar
   scheduled_for  timestamptz not null,
-  format         text not null default 'feed',   -- 'feed' | 'carousel'
+  format         text not null default 'feed',   -- 'feed' | 'carousel' | 'reels'
   slides         integer not null default 1,     -- nº de telas (carrossel)
   theme          text,                            -- tema opcional (newsjacking)
   angle          text,                            -- ângulo preferido opcional
   layout         text,                            -- layout preferido opcional
   image_mode     text,                            -- 'none' | 'editorial' | 'promo'
+
+  -- REELS (format='reels'): o runner delega ao GitHub Actions (worker), que
+  -- grava o app real, compõe o 9:16 e publica. `flow` é o roteiro de demo
+  -- ('scan-nota', 'meta', ou 'auto' = sorteia); `targets` onde publicar.
+  flow           text,                            -- roteiro de demo (reels)
+  targets        text[] not null default '{}',    -- {'reels'} | {'story'} | {'reels','story'}
 
   -- ciclo de vida
   status         text not null default 'pending', -- pending|processing|done|error|canceled
@@ -108,12 +114,14 @@ create table if not exists public.schedule_rules (
   active        boolean not null default true,
 
   -- o que publicar (mesmos campos de um job)
-  format        text not null default 'feed',   -- 'feed' | 'carousel'
+  format        text not null default 'feed',   -- 'feed' | 'carousel' | 'reels'
   slides        integer not null default 1,
   theme         text,
   angle         text,
   layout        text,
   image_mode    text default 'none',
+  flow          text,                            -- roteiro de demo (reels)
+  targets       text[] not null default '{}',    -- alvos do reels (reels/story)
 
   -- quando: dias da semana (0=dom … 6=sáb; vazio = todo dia) + horários 'HH:MM'
   weekdays      integer[] not null default '{}',
@@ -128,6 +136,12 @@ alter table public.schedule_rules enable row level security;
 alter table public.schedule add column if not exists rule_id uuid;
 create unique index if not exists schedule_rule_slot_idx
   on public.schedule (rule_id, scheduled_for) where rule_id is not null;
+
+-- Migração incremental do agendamento de Reels (colunas novas em tabelas já criadas).
+alter table public.schedule       add column if not exists flow    text;
+alter table public.schedule       add column if not exists targets text[] not null default '{}';
+alter table public.schedule_rules add column if not exists flow    text;
+alter table public.schedule_rules add column if not exists targets text[] not null default '{}';
 
 -- ============================================================
 -- Memória de desempenho por cliente — o "aprendizado" que realimenta a IA.

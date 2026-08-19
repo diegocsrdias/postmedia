@@ -1,8 +1,10 @@
 import { preflight, readJson } from './_lib/openai.js'
 import { insertJob } from './_lib/supabase.js'
+import { reelsFields } from './_lib/schedule.js'
 
 // Agenda um post automático. Entrada:
 //   { client, scheduledFor (ISO), format, slides?, theme?, angle?, imageMode? }
+//   Reels: { ..., format:'reels', flow?, targets? }
 // Saída: { job }.
 export default async function handler(req, res) {
   if (preflight(req, res)) return
@@ -13,11 +15,11 @@ export default async function handler(req, res) {
     const when = new Date(body.scheduledFor)
     if (isNaN(when.getTime())) throw new Error('scheduledFor inválido')
 
-    const format = body.format === 'carousel' ? 'carousel' : 'feed'
+    const format = ['carousel', 'reels'].includes(body.format) ? body.format : 'feed'
     const slides = format === 'carousel' ? Math.min(10, Math.max(2, Number(body.slides) || 3)) : 1
     const imageMode = /^(none|editorial|promo)$/.test(String(body.imageMode)) ? body.imageMode : 'none'
 
-    const job = await insertJob({
+    const row = {
       client,
       scheduled_for: when.toISOString(),
       format,
@@ -27,7 +29,10 @@ export default async function handler(req, res) {
       layout: body.layout ? String(body.layout) : null,
       image_mode: imageMode,
       status: 'pending',
-    })
+    }
+    if (format === 'reels') Object.assign(row, reelsFields(body))
+
+    const job = await insertJob(row)
     res.status(200).json({ job })
   } catch (err) {
     res.status(502).json({ error: String(err?.message || err) })

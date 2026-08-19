@@ -1,6 +1,6 @@
 import { preflight, readJson } from './_lib/openai.js'
 import { insertRule } from './_lib/supabase.js'
-import { materializeRule } from './_lib/schedule.js'
+import { materializeRule, reelsFields } from './_lib/schedule.js'
 
 // Cria uma regra de recorrência e já materializa as próximas ocorrências.
 // Entrada:
@@ -23,11 +23,11 @@ export default async function handler(req, res) {
       ? [...new Set(body.weekdays.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort()
       : []
 
-    const format = body.format === 'carousel' ? 'carousel' : 'feed'
+    const format = ['carousel', 'reels'].includes(body.format) ? body.format : 'feed'
     const slides = format === 'carousel' ? Math.min(10, Math.max(2, Number(body.slides) || 3)) : 1
     const imageMode = /^(none|editorial|promo)$/.test(String(body.imageMode)) ? body.imageMode : 'none'
 
-    const rule = await insertRule({
+    const ruleRow = {
       client,
       active: true,
       format,
@@ -38,7 +38,10 @@ export default async function handler(req, res) {
       image_mode: imageMode,
       weekdays,
       times,
-    })
+    }
+    if (format === 'reels') Object.assign(ruleRow, reelsFields(body))
+
+    const rule = await insertRule(ruleRow)
 
     // já enfileira as próximas ocorrências pra fila aparecer preenchida
     let materialized = 0
