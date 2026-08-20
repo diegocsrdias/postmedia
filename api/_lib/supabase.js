@@ -99,7 +99,7 @@ export async function listPublishedPosts(limit = 50) {
   const sb = supabase()
   const { data, error } = await sb
     .from('posts')
-    .select('id, ig_media_id')
+    .select('id, ig_media_id, client')
     .not('ig_media_id', 'is', null)
     .order('published_at', { ascending: false })
     .limit(limit)

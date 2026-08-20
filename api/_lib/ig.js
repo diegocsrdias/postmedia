@@ -16,13 +16,49 @@ import { uploadMedia, insertPost } from './supabase.js'
 
 const GRAPH_BASE = process.env.IG_GRAPH_BASE || 'https://graph.facebook.com/v21.0'
 
-/** Lê as credenciais do Instagram ou explica exatamente o que falta. */
-export function igConfig() {
-  const userId = process.env.IG_USER_ID
-  const token = process.env.IG_ACCESS_TOKEN
+// Cliente "padrão": usa as env globais IG_USER_ID / IG_ACCESS_TOKEN (retrocompat).
+// Os demais clientes usam env sufixadas: IG_USER_ID_<CLIENTE> / IG_ACCESS_TOKEN_<CLIENTE>.
+const DEFAULT_CLIENT = (process.env.IG_DEFAULT_CLIENT || 'dindin').toLowerCase()
+
+/** Sufixo de env a partir do id do cliente: 'rachel' -> 'RACHEL'. */
+function envSuffix(client) {
+  return String(client || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+/**
+ * Lê as credenciais do Instagram DO CLIENTE informado, ou explica o que falta.
+ *
+ * Resolução:
+ *   1) se existir IG_USER_ID_<CLIENTE> ou IG_ACCESS_TOKEN_<CLIENTE> → usa esse par;
+ *   2) senão, se o cliente for o padrão (ou vazio) → usa IG_USER_ID / IG_ACCESS_TOKEN;
+ *   3) senão → erro explícito (NÃO cai no padrão, pra não postar no perfil errado).
+ */
+export function igConfig(client) {
+  const suffix = envSuffix(client)
+  const key = String(client || '').toLowerCase()
+  const hasOwn = suffix && (process.env['IG_USER_ID_' + suffix] || process.env['IG_ACCESS_TOKEN_' + suffix])
+
+  let nameU, nameT
+  if (hasOwn) {
+    nameU = 'IG_USER_ID_' + suffix
+    nameT = 'IG_ACCESS_TOKEN_' + suffix
+  } else if (!key || key === DEFAULT_CLIENT) {
+    nameU = 'IG_USER_ID'
+    nameT = 'IG_ACCESS_TOKEN'
+  } else {
+    throw new Error(
+      `Instagram não configurado para o cliente "${key}": defina IG_USER_ID_${suffix} e IG_ACCESS_TOKEN_${suffix} no ambiente (Vercel → Settings → Environment Variables).`,
+    )
+  }
+
+  const userId = process.env[nameU]
+  const token = process.env[nameT]
   const missing = []
-  if (!userId) missing.push('IG_USER_ID')
-  if (!token) missing.push('IG_ACCESS_TOKEN')
+  if (!userId) missing.push(nameU)
+  if (!token) missing.push(nameT)
   if (missing.length) {
     throw new Error('Configuração ausente no servidor: ' + missing.join(', '))
   }
@@ -138,7 +174,7 @@ async function logPost({ published, permalink, mediaUrl, caption, meta, format, 
  * Retorna { id, permalink, mediaUrl, postId }.
  */
 export async function publishImage({ imageDataUrl, caption, meta = {} }) {
-  const { userId, token } = igConfig()
+  const { userId, token } = igConfig(meta.client)
   const { buffer, mime } = decodeDataUrl(imageDataUrl)
   const ext = mime === 'image/png' ? 'png' : 'jpg'
   const client = String(meta.client || 'post')
@@ -191,7 +227,7 @@ export async function publishImage({ imageDataUrl, caption, meta = {} }) {
  * `target` é 'story' ou 'reels'. Retorna { id, permalink, postId }.
  */
 export async function publishVideo({ videoUrl, caption, target, coverUrl, trial = false, meta = {} }) {
-  const { userId, token } = igConfig()
+  const { userId, token } = igConfig(meta.client)
   const mediaType = target === 'reels' ? 'REELS' : 'STORIES'
 
   // 1) cria o container de vídeo (o Instagram baixa e processa — pode demorar)
@@ -251,7 +287,7 @@ export async function publishVideo({ videoUrl, caption, target, coverUrl, trial 
  * `imageUrls` são URLs públicas (já hospedadas no bucket).
  */
 export async function publishCarousel({ imageUrls, caption, meta = {} }) {
-  const { userId, token } = igConfig()
+  const { userId, token } = igConfig(meta.client)
   const urls = (imageUrls || []).filter(Boolean).slice(0, 10)
   if (urls.length < 2) throw new Error('Carrossel precisa de ao menos 2 imagens')
 
@@ -313,8 +349,8 @@ export async function publishCarousel({ imageUrls, caption, meta = {} }) {
  * aqui pegamos o conteúdo permanente do feed, que é o que interessa à análise.
  * Retorna os objetos crus da Graph API (id, caption, media_type, timestamp…).
  */
-export async function listAccountMedia({ limit = 50, max = 100 } = {}) {
-  const { userId, token } = igConfig()
+export async function listAccountMedia({ client, limit = 50, max = 100 } = {}) {
+  const { userId, token } = igConfig(client)
   const fields =
     'id,caption,media_type,media_product_type,permalink,timestamp,media_url,thumbnail_url'
   const out = []
@@ -340,8 +376,8 @@ export async function listAccountMedia({ limit = 50, max = 100 } = {}) {
  * Tolerante: o que a API não devolver fica indefinido (não estoura).
  * Retorna { like_count, comments_count, reach, impressions, saved, shares }.
  */
-export async function fetchMetrics(mediaId) {
-  const { token } = igConfig()
+export async function fetchMetrics(mediaId, client) {
+  const { token } = igConfig(client)
   const out = {}
 
   // contadores diretos no objeto de mídia

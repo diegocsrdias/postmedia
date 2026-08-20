@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     const errors = []
     for (const p of posts) {
       try {
-        const metrics = await fetchMetrics(p.ig_media_id)
+        const metrics = await fetchMetrics(p.ig_media_id, p.client)
         if (Object.keys(metrics).length) {
           await updatePostMetrics(p.id, metrics)
           ok++

@@ -28,8 +28,8 @@ export default async function handler(req, res) {
     const max = Math.min(Math.max(Number((body && body.max) || q.max || 100), 1), 200)
     const withMetrics = (body && body.metrics) !== false && q.metrics !== 'false'
 
-    // 1) o que a conta já publicou
-    const media = await listAccountMedia({ max })
+    // 1) o que a conta já publicou (usa as credenciais do cliente informado)
+    const media = await listAccountMedia({ client, max })
 
     // 2) tira o que já está no banco (dedupe)
     const existing = await listClientMediaIds(client)
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
       const row = mapMedia(m, client)
       if (withMetrics) {
         try {
-          const metrics = await fetchMetrics(m.id)
+          const metrics = await fetchMetrics(m.id, client)
           if (Object.keys(metrics).length) {
             Object.assign(row, metrics)
             row.metrics_updated_at = new Date().toISOString()
