@@ -148,6 +148,10 @@ export function extractJsonArray(txt) {
 export function sanitizeText(str) {
   if (typeof str !== 'string') return str
   let s = str
+  // Remove anotações de rascunho entre colchetes que a IA às vezes deixa vazar
+  // no campo final (ex.: "[Reflexão] Em qual fase..." ou "[adicionar CTA]").
+  // Limitado a ~120 chars pra nunca engolir conteúdo real por engano.
+  s = s.replace(/\[[^\]\n]{0,120}\]\s*/g, '')
   // "P E R F E I Ç Ã O" -> "PERFEIÇÃO" (mín. 3 letras isoladas). Os lookarounds
   // garantem que só pega letras SOLTAS — não a última letra de uma palavra real
   // ("Com P E R F" nunca vira "ComPERF") nem a primeira da seguinte.

@@ -105,6 +105,25 @@ const TEXT_HYGIENE =
   'NUNCA separe as letras de uma palavra com espaços para dar ênfase (ex.: escreva "PERFEIÇÃO", jamais "P E R F E I Ç Ã O"). ' +
   'Não use espaçamento, caixa alta exagerada nem caracteres decorativos como recurso de destaque.'
 
+/**
+ * Bloco de FEW-SHOT com o registro real do cliente (client.voiceSamples).
+ * Exemplo concreto pesa muito mais que adjetivo abstrato: é o que efetivamente
+ * tira o texto do default genérico "cara de IA" e o aproxima da voz da pessoa.
+ * Deixamos explícito que é pra imitar o REGISTRO (densidade, tipo de observação,
+ * discrição do CTA), não copiar tema/conteúdo. Vazio quando o cliente não define.
+ */
+function voiceSamplesBlock(client) {
+  const s = client && client.voiceSamples
+  if (!s || !s.length) return ''
+  const items = s.map((ex, i) => `${i + 1}) ${ex}`).join('\n\n')
+  return (
+    '\n\nEXEMPLOS DO REGISTRO REAL desta pessoa (o padrão de voz a seguir). ' +
+    'Imite a DENSIDADE, o tom e o TIPO de observação (mecanismo/distinção/exemplo concreto) e a discrição do convite — ' +
+    'NÃO copie os temas, as frases nem o assunto destes exemplos; escreva conteúdo novo no mesmo registro:\n\n' +
+    items
+  )
+}
+
 /** Corpo comum do system prompt (oferta, tom, público, regras, playbook). */
 function brandContext(client) {
   return (
@@ -117,6 +136,7 @@ function brandContext(client) {
     '.' +
     guardrails(client) +
     brandPlaybook(client) +
+    voiceSamplesBlock(client) +
     TEXT_HYGIENE
   )
 }
@@ -198,9 +218,9 @@ function layoutContract(client) {
 /** Formato de saída (JSON), compartilhado. */
 function outputContract(client) {
   const caption = isEditorial(client)
-    ? '"caption": "legenda de 2-4 linhas que desenvolva a ideia do post com substância (emoji só se combinar com o tom), fechando com um convite discreto (' +
+    ? '"caption": "legenda de 2-4 linhas que desenvolva a ideia com UMA observação clínica concreta e específica (um mecanismo, uma distinção ou um exemplo cotidiano verossímil — nunca uma verdade geral que serviria pra qualquer nicho; emoji só se combinar com o tom). CTA é OPCIONAL: quando fizer sentido, feche com um convite discreto e variado (' +
       client.ctaWord +
-      ')"'
+      '); não repita a mesma frase de contato em toda peça"'
     : '"caption": "legenda de 2-3 linhas (emoji só se combinar com o tom da marca) e chamada pra ação (' +
       client.ctaWord +
       ')"'

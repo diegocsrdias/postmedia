@@ -152,6 +152,16 @@ export const CLIENTS = {
       'cenas sóbrias ligadas ao cuidado em saúde mental: ambientes calmos e reais (consultório, casa, espaços de pausa), ' +
       'objetos cotidianos e luz natural — nunca encenação de sessão com paciente, nunca clichê emotivo de banco de imagens, ' +
       'nunca clichês de "loucura" ou clínica fria',
+    // Amostras do registro REAL da Rachel (legendas escritas no tom dela). Vão
+    // como few-shot no system prompt — o modelo imita exemplo concreto muito
+    // mais do que obedece adjetivo abstrato. É a maior alavanca contra o texto
+    // genérico "cara de IA": mostra densidade, mecanismo clínico e CTA discreto.
+    // NÃO são pra copiar tema/conteúdo — só o REGISTRO (ver voiceSamplesBlock).
+    voiceSamples: [
+      'A ansiedade opera no futuro: o corpo responde a uma ameaça que ainda não aconteceu, como se já estivesse acontecendo. Por isso argumentar consigo mesmo raramente resolve — o sistema de alarme não é convencido por lógica. O trabalho terapêutico costuma passar menos por eliminar a ansiedade e mais por entender o que ela está tentando proteger. Se quiser conversar sobre isso, o link está na bio.',
+      'Cansaço e esgotamento são coisas diferentes. O cansaço responde ao descanso; o esgotamento persiste depois de dormir, do fim de semana, das férias. Isso muda a conduta: contra o esgotamento, mais descanso do mesmo tipo costuma não bastar — o que está em questão é a relação com a demanda, não a quantidade de sono.',
+      'Dar nome preciso a um estado emocional não é detalhe de vocabulário: a pesquisa em regulação emocional indica que discriminar o que se sente ("não é raiva, é frustração") reduz a intensidade da reação. Parte do trabalho em terapia é ampliar esse repertório — sair do genérico "estou mal" para algo mais específico, que possa ser trabalhado.',
+    ],
     // Regras de conteúdo específicas pra evitar o "cheirinho de IA genérica" e
     // problemas éticos (CRP proíbe promessa de cura/resultado e sensacionalismo).
     writingRules: [
@@ -167,6 +177,12 @@ export const CLIENTS = {
       'CTA sempre respeitoso, discreto e sem urgência artificial — um convite ("se fizer sentido pra você"), nunca uma conversão. Nunca "corra", "últimas vagas", "não perca essa chance"',
       'Tom sério e profissional o tempo todo, mesmo quando acolhedor — isso não é uma marca de consumo, é saúde mental',
       'Respeite o Código de Ética do Psicólogo e a Resolução CFP 011/2018: sem sensacionalismo, sem autopromoção exagerada, sem prometer eficácia, sem depoimento de paciente',
+      'PROIBIDA a voz coletiva vaga de autoajuda ("podemos nos sentir", "nos ajuda a", "nossos recursos internos", "impacta nossa vida"): escreva com sujeito concreto e afirmação específica, não no "nós" genérico',
+      'PROIBIDAS estas muletas de IA e de página de terapia — NUNCA escreva: "espaço seguro", "essa jornada", "estou aqui para ajudar", "bem-estar emocional" (solto), "cuide da sua mente", "você merece", "dê o primeiro passo", "não está sozinho"',
+      'Num layout de duas linhas (statement), NÃO ligue line1 e line2 com reticências ("..."): cada linha é uma frase curta e inteira (até ~28 caracteres), como "A ansiedade antecipa" / "o que ainda não houve."',
+      'Cada campo contém APENAS o texto final publicável — NUNCA colchetes, reticências de rascunho, instruções ou anotações a si mesmo (jamais algo como "[Reflexão]", "[adicionar...]", "[renovar conceito]")',
+      'CTA é OPCIONAL: nem toda peça precisa terminar convidando pro WhatsApp/bio. Quando houver, varie a forma e mantenha discreto ("se fizer sentido, o link está na bio") — nunca a mesma frase de contato repetida em todo post',
+      'Auto-checagem antes de fechar cada texto: "esta frase serviria para QUALQUER psicólogo genérico?" Se sim, reescreva com uma observação clínica concreta — um mecanismo, uma distinção precisa ou um exemplo cotidiano verossímil (como nos exemplos de registro fornecidos)',
     ],
   },
 }
