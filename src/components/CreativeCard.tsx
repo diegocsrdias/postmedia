@@ -1,10 +1,22 @@
+import { useState } from 'react'
 import type { ClientConfig } from '../clients/types'
 import type { Creative, CreativeFields } from '../types'
 import type { ImageMode, StoryTarget } from '../lib/api'
 import { ANGLE_LABELS, EDIT_FIELDS } from '../data/shared'
-import { FONT, RADIUS, SHADOW, UI, button, fieldLabel, textarea } from '../ui/theme'
+import { Badge, Button, Dropdown, MenuItem } from '../ui/components'
+import { Icon } from '../ui/icons'
+import { UI } from '../ui/theme'
 import { CreativeCanvas } from './CreativeCanvas'
-import type { CSSProperties } from 'react'
+
+/** Qual versão baixar: como está (com a foto da OpenAI), sem ela, ou as duas. */
+export type DownloadVariant = 'ai' | 'plain' | 'both'
+export type DownloadKind = 'image' | 'video'
+
+/** `data-cap` da variante "sem foto IA" (renderizada fora da tela). */
+export const plainCapId = (idx: number) => 'plain-' + idx
+
+/** Limite de caracteres da legenda no Instagram. */
+const CAPTION_MAX = 2200
 
 interface Props {
   c: Creative
@@ -25,23 +37,24 @@ interface Props {
   /** Publica o vídeo vertical no Story e/ou nos Reels (formato 9:16).
    *  `trial` publica um Trial Reel (só para não-seguidores, por 72h). */
   onPublishStory: (idx: number, targets: StoryTarget[], trial?: boolean) => void
-  /** Baixa o vídeo para postar manualmente no app (com áudio em alta). */
-  onDownloadVideo: (idx: number) => void
-  /** Baixa a imagem (PNG) para postar manualmente. */
-  onDownloadImage: (idx: number) => void
+  /** Baixa a imagem (PNG) ou o vídeo, com ou sem a foto gerada pela OpenAI. */
+  onDownload: (idx: number, kind: DownloadKind, variant: DownloadVariant) => void
   onGenImage: (idx: number, mode: ImageMode) => void
   onClearImage: (idx: number) => void
   busy: boolean
-  /** true quando a imagem DESTE card está sendo gerada pela IA */
-  busyImage?: boolean
-  /** true quando ESTE card está sendo publicado no Instagram */
+  /** Texto do overlay quando a IA está trabalhando NESTE card (foto ou texto novo). */
+  busyLabel?: string
+  /** true quando ESTE card está sendo publicado/gravado */
   posting?: boolean
-  /** no modo carrossel os botões de publicar do card somem (posta pela barra) */
+  /** true enquanto um download deste card (ou do carrossel) está em andamento */
+  downloading?: boolean
+  /** no modo carrossel publicar é pela barra do carrossel (download segue por tela) */
   carouselMode?: boolean
+  /** total de telas (só no carrossel, para o rótulo "Tela 2 de 4") */
+  total?: number
 }
 
-// Cor da marca do Instagram, usada nos botões de publicar.
-const IG_GRADIENT = 'linear-gradient(95deg,#833AB4 0%,#E1306C 50%,#F77737 100%)'
+type Tab = 'art' | 'caption'
 
 export function CreativeCard(props: Props) {
   const { c, idx, square, frameW, frameH, scaleStr, innerW, innerH, client } = props
@@ -49,278 +62,385 @@ export function CreativeCard(props: Props) {
   // Marcas editoriais (saúde) não geram imagem de propaganda — ver ClientVoice.
   const editorial = client.voice === 'editorial'
   const posting = !!props.posting
+  const hasAI = Boolean(c.bgImage)
+  const [tab, setTab] = useState<Tab>('art')
 
-  // Botão flutuante sobre o preview (gerar/remover fundo por IA).
-  const floatBtn: CSSProperties = {
-    height: 30,
-    padding: '0 12px',
-    borderRadius: RADIUS.pill,
-    border: 'none',
-    background: 'rgba(0,0,0,0.62)',
-    backdropFilter: 'blur(4px)',
-    WebkitBackdropFilter: 'blur(4px)',
-    color: '#fff',
-    fontWeight: 700,
-    fontSize: 12,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    cursor: props.busy ? 'default' : 'pointer',
-    opacity: props.busy ? 0.7 : 1,
-    whiteSpace: 'nowrap',
-  }
-
-  // Botão de publicar (gradiente do Instagram), reaproveitado no feed e no story.
-  const igBtn = (extra: CSSProperties = {}): CSSProperties => ({
-    ...button('primary'),
-    background: IG_GRADIENT,
-    border: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    cursor: posting ? 'default' : 'pointer',
-    opacity: posting ? 0.85 : 1,
-    boxShadow: '0 6px 18px -6px rgba(225,48,108,0.5)',
-    ...extra,
-  })
-
-  const spinner = <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+  const captionLen = c.caption.length + (c.hashtags ? c.hashtags.length + 2 : 0)
+  const tagCount = (c.hashtags.match(/#[\p{L}\p{N}_]+/gu) || []).length
 
   return (
-    <div
+    <article
       className="card card-work"
-      style={{ borderRadius: RADIUS.xl, overflow: 'hidden', boxShadow: SHADOW.card }}
+      style={{ borderRadius: 18 }}
+      aria-label={'Criativo ' + (idx + 1)}
     >
       {/* ===== painel do preview ===== */}
       <div className="work-preview">
-        <div
-          style={{
-            width: frameW,
-            height: frameH,
-            overflow: 'hidden',
-            borderRadius: 12,
-            boxShadow: '0 12px 34px -8px rgba(0,0,0,.6)',
-            flex: 'none',
-            alignSelf: 'flex-start',
-            position: 'sticky',
-            top: 22,
-          }}
-        >
-          <CreativeCanvas
-            c={c}
-            idx={idx}
-            square={square}
-            scaleStr={scaleStr}
-            innerW={innerW}
-            innerH={innerH}
-            client={client}
-          />
+        <div style={{ position: 'sticky', top: 80, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+          <div
+            style={{
+              width: frameW,
+              height: frameH,
+              overflow: 'hidden',
+              borderRadius: 12,
+              boxShadow: '0 18px 44px -12px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06)',
+              flex: 'none',
+              position: 'relative',
+            }}
+          >
+            <CreativeCanvas
+              c={c}
+              idx={idx}
+              square={square}
+              scaleStr={scaleStr}
+              innerW={innerW}
+              innerH={innerH}
+              client={client}
+            />
 
-          {/* botões flutuantes: fundo por IA (aparece em todo post, feed ou story). */}
-          <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6, zIndex: 5 }}>
-            {c.bgImage && (
-              <button
-                onClick={() => props.onClearImage(idx)}
-                title="Remover imagem de fundo"
-                style={{ ...floatBtn, width: 30, padding: 0, borderRadius: '50%', fontSize: 14 }}
-              >
-                ✕
-              </button>
-            )}
-            <button
-              onClick={() => props.onGenImage(idx, 'editorial')}
-              disabled={props.busy}
-              title={c.bgImage ? 'Gerar outra foto editorial por IA' : 'Gerar foto editorial por IA'}
-              style={floatBtn}
-            >
-              🎨 {c.bgImage ? 'Foto' : 'Foto IA'}
-            </button>
-            {!editorial && (
-              <button
-                onClick={() => props.onGenImage(idx, 'promo')}
-                disabled={props.busy}
-                title="Gerar imagem de propaganda (vibrante e chamativa) por IA"
-                style={{ ...floatBtn, background: UI.accent }}
-              >
-                📣 Propaganda
-              </button>
+            {/* overlay enquanto a IA gera a imagem deste card */}
+            {props.busyLabel && (
+              <div className="card-loading-overlay" role="status" aria-live="polite">
+                <span className="spinner" style={{ width: 36, height: 36, borderWidth: 3, color: 'var(--accent)' }} />
+                <div style={{ color: '#fff', fontWeight: 600, fontSize: 13, padding: '0 16px' }}>
+                  {props.busyLabel}
+                </div>
+              </div>
             )}
           </div>
 
-          {/* overlay enquanto a IA gera a imagem deste card */}
-          {props.busyImage && (
-            <div className="card-loading-overlay" role="status" aria-live="polite">
-              <span className="spinner" style={{ width: 40, height: 40, borderWidth: 4, color: 'var(--accent)' }} />
-              <div style={{ color: '#fff', fontWeight: 700, fontSize: 13, padding: '0 16px' }}>
-                Gerando imagem… ~15s
-              </div>
-            </div>
-          )}
+          {/* ferramentas de fundo por IA — fora da arte, para não cobrir o conteúdo */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', maxWidth: frameW }}>
+            <button
+              className="icon-btn accent"
+              onClick={() => props.onGenImage(idx, 'editorial')}
+              disabled={props.busy}
+              title={hasAI ? 'Gerar outra foto editorial com a OpenAI' : 'Gerar uma foto editorial de fundo com a OpenAI'}
+            >
+              <Icon name={hasAI ? 'refresh' : 'image'} size={15} />
+              {hasAI ? 'Outra foto' : 'Foto IA'}
+            </button>
+            {!editorial && (
+              <button
+                className="icon-btn"
+                onClick={() => props.onGenImage(idx, 'promo')}
+                disabled={props.busy}
+                title="Gerar imagem de propaganda (vibrante e chamativa) com a OpenAI"
+              >
+                <Icon name="megaphone" size={15} />
+                Propaganda
+              </button>
+            )}
+            {hasAI && (
+              <button
+                className="icon-btn danger"
+                onClick={() => props.onClearImage(idx)}
+                disabled={props.busy}
+                title="Remover a foto de fundo (volta ao layout da marca)"
+                aria-label="Remover foto de fundo"
+              >
+                <Icon name="imageOff" size={15} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* ===== painel do editor ===== */}
       <div className="work-editor">
-        {/* cabeçalho: ângulo + trocar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span
-            style={{
-              fontFamily: FONT.mono,
-              fontSize: 10,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              background: 'var(--accent-soft)',
-              color: 'var(--accent-hover)',
-              padding: '5px 11px',
-              borderRadius: 999,
-              fontWeight: 700,
-            }}
-          >
-            {ANGLE_LABELS[c.angle] ?? c.angle}
-          </span>
+        {/* cabeçalho */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '16px 20px 0' }}>
+          {props.carouselMode && props.total ? (
+            <Badge tone="neutral" icon="layers">
+              Tela {idx + 1} de {props.total}
+            </Badge>
+          ) : null}
+          <Badge tone="accent">{ANGLE_LABELS[c.angle] ?? c.angle}</Badge>
           <div style={{ flex: 1 }} />
           <button
-            className="ui-btn"
+            className="icon-btn"
             onClick={() => props.onRegen(idx)}
-            title="Trocar por outro"
-            style={{
-              background: 'var(--surface-2)',
-              border: '1px solid ' + UI.border,
-              borderRadius: RADIUS.pill,
-              padding: '7px 13px',
-              fontSize: 13,
-              fontWeight: 700,
-              color: UI.inkMuted,
-              cursor: 'pointer',
-            }}
+            disabled={props.busy}
+            title="Trocar por outro criativo (a IA escreve um novo)"
           >
-            🔄 Trocar
+            <Icon name="refresh" size={15} />
+            Trocar
           </button>
         </div>
 
-        {/* campos editáveis */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {editFields.map(([key, label]) => (
-            <label key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={fieldLabel}>{label}</span>
-              <textarea
-                className="textarea"
-                value={c.f[key] ?? ''}
-                onChange={(e) => props.onEditField(idx, key, e.target.value)}
-                rows={2}
-                style={textarea}
-              />
-            </label>
-          ))}
+        {/* abas: texto da arte × legenda do post */}
+        <div className="tabs" role="tablist" style={{ padding: '6px 12px 0' }}>
+          <button role="tab" aria-selected={tab === 'art'} className={'tab' + (tab === 'art' ? ' on' : '')} onClick={() => setTab('art')}>
+            <Icon name="type" size={15} />
+            Texto da arte
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === 'caption'}
+            className={'tab' + (tab === 'caption' ? ' on' : '')}
+            onClick={() => setTab('caption')}
+          >
+            <Icon name="text" size={15} />
+            Legenda
+            {tagCount > 0 && (
+              <span style={{ fontSize: 11, color: UI.inkMuted2, fontWeight: 500 }}>
+                · {tagCount} #
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* legenda + hashtags — vão na descrição (feed e Reels); Story ignora. */}
-        <div
-          style={{
-            borderTop: '1px solid ' + UI.border,
-            paddingTop: 12,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-          }}
-        >
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={fieldLabel}>Legenda {!square && <span style={{ opacity: 0.6 }}>(feed/Reels)</span>}</span>
-            <textarea
-              className="textarea"
-              value={c.caption}
-              onChange={(e) => props.onEditCaption(idx, e.target.value)}
-              rows={4}
-              style={{ ...textarea, lineHeight: 1.5 }}
-            />
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={fieldLabel}># Hashtags</span>
-            <textarea
-              className="textarea"
-              value={c.hashtags}
-              onChange={(e) => props.onEditHashtags(idx, e.target.value)}
-              rows={2}
-              style={{ ...textarea, color: UI.inkMuted }}
-            />
-          </label>
+        <div style={{ padding: '16px 20px 18px', display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+          {tab === 'art' ? (
+            editFields.map(([key, label]) => (
+              <label key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span className="field-label">{label}</span>
+                <textarea
+                  className="textarea"
+                  value={c.f[key] ?? ''}
+                  onChange={(e) => props.onEditField(idx, key, e.target.value)}
+                  rows={2}
+                  style={{ fontSize: 14 }}
+                />
+              </label>
+            ))
+          ) : (
+            <>
+              {!square && (
+                <div className="field-hint" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <Icon name="bulb" size={14} />A legenda vai nos Reels. O Story não usa legenda.
+                </div>
+              )}
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span className="field-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  Legenda
+                  <span style={{ fontWeight: 500, color: captionLen > CAPTION_MAX ? 'var(--danger)' : UI.inkMuted2 }}>
+                    {captionLen.toLocaleString('pt-BR')}/{CAPTION_MAX.toLocaleString('pt-BR')}
+                  </span>
+                </span>
+                <textarea
+                  className="textarea"
+                  value={c.caption}
+                  onChange={(e) => props.onEditCaption(idx, e.target.value)}
+                  rows={6}
+                  style={{ fontSize: 14 }}
+                />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span className="field-label">Hashtags</span>
+                <textarea
+                  className="textarea"
+                  value={c.hashtags}
+                  onChange={(e) => props.onEditHashtags(idx, e.target.value)}
+                  rows={2}
+                  style={{ fontSize: 13.5, color: 'var(--accent-hover)' }}
+                />
+              </label>
+            </>
+          )}
         </div>
 
-        <div style={{ flex: 1 }} />
-
-        {/* ===== ações ===== (escondidas no modo carrossel: posta pela barra) */}
-        {props.carouselMode ? null : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {square ? (
-              // Feed 1:1 — publica a imagem.
-              <button
-                className="ui-btn"
+        {/* ===== barra de ações ===== */}
+        <div className="work-actions stack-sm">
+          {!props.carouselMode &&
+            (square ? (
+              <Button
+                variant="ig"
+                icon="send"
+                loading={posting}
+                disabled={props.busy}
                 onClick={() => props.onPublish(idx)}
-                disabled={posting}
                 title="Publicar esta imagem no feed do Instagram conectado"
-                style={igBtn({ width: '100%' })}
+                style={{ flex: '1 1 200px' }}
               >
-                {posting ? <>{spinner} Postando…</> : <>📤 Postar no Instagram</>}
-              </button>
+                {posting ? 'Publicando…' : 'Publicar no feed'}
+              </Button>
             ) : (
-              // Story 9:16 — grava o vídeo animado e publica no Story e/ou Reels.
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {posting ? (
-                  <button className="ui-btn" disabled style={igBtn({ width: '100%' })}>
-                    {spinner} Publicando vídeo… ~30s
-                  </button>
-                ) : (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="ui-btn" onClick={() => props.onPublishStory(idx, ['story'])} title="Publicar o vídeo no Story" style={igBtn({ flex: 1 })}>
-                      📱 Story
-                    </button>
-                    <button className="ui-btn" onClick={() => props.onPublishStory(idx, ['reels'])} title="Publicar o vídeo nos Reels" style={igBtn({ flex: 1 })}>
-                      🎬 Reels
-                    </button>
-                    <button className="ui-btn" onClick={() => props.onPublishStory(idx, ['story', 'reels'])} title="Publicar no Story e nos Reels" style={igBtn({ flex: 1 })}>
-                      ✨ Ambos
-                    </button>
-                  </div>
-                )}
-                {!posting && (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      className="ui-btn"
-                      onClick={() => props.onPublishStory(idx, ['reels'], true)}
-                      title="Trial Reel: publica só para NÃO-seguidores por 72h, para testar o desempenho antes de mostrar aos seguidores"
-                      style={{ ...button('ghost'), flex: 1, fontSize: 13 }}
-                    >
-                      🧪 Trial Reels
-                    </button>
-                    <button
-                      className="ui-btn"
-                      onClick={() => props.onDownloadVideo(idx)}
-                      title="Baixar o vídeo para postar no app e escolher um áudio em alta (a API não permite áudio da biblioteca)"
-                      style={{ ...button('ghost'), flex: 1, fontSize: 13 }}
-                    >
-                      ⬇ Baixar (áudio no app)
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+              <PublishStoryMenu posting={posting} disabled={props.busy} onPick={(t, trial) => props.onPublishStory(idx, t, trial)} />
+            ))}
 
-            {/* baixar imagem — feed/carrossel — para postar manualmente com áudio em alta */}
-            {square && (
-              <button
-                className="ui-btn"
-                onClick={() => props.onDownloadImage(idx)}
-                title="Baixar a imagem (PNG) para postar manualmente no app"
-                style={{ ...button('ghost'), width: '100%', fontSize: 13 }}
-              >
-                ⬇ Baixar imagem (p/ postar manual)
-              </button>
-            )}
-          </div>
-        )}
+          <DownloadMenu
+            story={!square}
+            hasAI={hasAI}
+            loading={!!props.downloading}
+            disabled={posting || !!props.busyLabel}
+            wide={!!props.carouselMode}
+            onPick={(kind, variant) => props.onDownload(idx, kind, variant)}
+          />
+        </div>
       </div>
+
+      {/* variante "sem foto da OpenAI", renderizada fora da tela só para exportar */}
+      {hasAI && (
+        <div className="export-stage" aria-hidden="true">
+          <CreativeCanvas
+            c={{ ...c, bgImage: undefined }}
+            idx={idx}
+            capId={plainCapId(idx)}
+            square={square}
+            scaleStr="1"
+            innerW={innerW}
+            innerH={innerH}
+            client={client}
+          />
+        </div>
+      )}
+    </article>
+  )
+}
+
+/* ============================================================
+   Publicar Story/Reels (menu)
+   ============================================================ */
+
+function PublishStoryMenu({
+  posting,
+  disabled,
+  onPick,
+}: {
+  posting: boolean
+  disabled: boolean
+  onPick: (targets: StoryTarget[], trial?: boolean) => void
+}) {
+  return (
+    <div style={{ flex: '1 1 200px', display: 'flex' }}>
+      <Dropdown
+        align="left"
+        up
+        width={290}
+        trigger={({ open, toggle }) => (
+          <Button
+            variant="ig"
+            icon="send"
+            loading={posting}
+            disabled={disabled}
+            onClick={toggle}
+            full
+            style={{ minWidth: 200 }}
+          >
+            {posting ? 'Gravando e publicando… ~30s' : 'Publicar vídeo'}
+            {!posting && <Icon name="chevronDown" size={15} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} />}
+          </Button>
+        )}
+      >
+        {(close) => {
+          const pick = (t: StoryTarget[], trial?: boolean) => {
+            close()
+            onPick(t, trial)
+          }
+          return (
+            <>
+              <div className="menu-label">Publicar no Instagram</div>
+              <MenuItem icon="sparkles" accent title="Story + Reels" sub="Publica nos dois de uma vez" onClick={() => pick(['story', 'reels'])} />
+              <MenuItem icon="portrait" title="Só Story" sub="Some em 24h" onClick={() => pick(['story'])} />
+              <MenuItem icon="video" title="Só Reels" sub="Fica no perfil, com a legenda" onClick={() => pick(['reels'])} />
+              <div className="menu-sep" />
+              <MenuItem
+                icon="flask"
+                title="Trial Reels"
+                sub="Só para não-seguidores por 72h. Teste antes de mostrar a todos."
+                onClick={() => pick(['reels'], true)}
+              />
+            </>
+          )
+        }}
+      </Dropdown>
+    </div>
+  )
+}
+
+/* ============================================================
+   Baixar (menu) — com e sem a foto da OpenAI
+   ============================================================ */
+
+function DownloadMenu({
+  story,
+  hasAI,
+  loading,
+  disabled,
+  wide,
+  onPick,
+}: {
+  story: boolean
+  hasAI: boolean
+  loading: boolean
+  disabled: boolean
+  wide: boolean
+  onPick: (kind: DownloadKind, variant: DownloadVariant) => void
+}) {
+  const noAIHint = 'Gere uma Foto IA para ter esta versão'
+  return (
+    <div style={{ display: 'flex', flex: wide ? '1 1 200px' : '0 0 auto' }}>
+      <Dropdown
+        align="right"
+        up
+        width={300}
+        trigger={({ open, toggle }) => (
+          <Button
+            variant="ghost"
+            icon="download"
+            loading={loading}
+            disabled={disabled}
+            onClick={toggle}
+            full={wide}
+            title="Baixar para postar manualmente (com ou sem a foto da OpenAI)"
+          >
+            {loading ? 'Baixando…' : 'Baixar'}
+            {!loading && (
+              <Icon name="chevronDown" size={15} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} />
+            )}
+          </Button>
+        )}
+      >
+        {(close) => {
+          const pick = (kind: DownloadKind, variant: DownloadVariant) => {
+            close()
+            onPick(kind, variant)
+          }
+          return (
+            <>
+              <div className="menu-label">Imagem PNG</div>
+              <MenuItem
+                icon="sparkles"
+                accent
+                title="Com foto da OpenAI"
+                sub={hasAI ? 'Igual ao preview' : noAIHint}
+                disabled={!hasAI}
+                onClick={() => pick('image', 'ai')}
+              />
+              <MenuItem
+                icon="imageOff"
+                title="Sem foto da OpenAI"
+                sub="Só o layout e as cores da marca"
+                onClick={() => pick('image', 'plain')}
+              />
+              {hasAI && (
+                <MenuItem icon="layers" title="Baixar as duas" sub="2 arquivos PNG" onClick={() => pick('image', 'both')} />
+              )}
+              {story && (
+                <>
+                  <div className="menu-sep" />
+                  <div className="menu-label">Vídeo ~6s · para pôr áudio no app</div>
+                  <MenuItem
+                    icon="video"
+                    accent
+                    title="Vídeo com foto da OpenAI"
+                    sub={hasAI ? 'Igual ao preview, animado' : noAIHint}
+                    disabled={!hasAI}
+                    onClick={() => pick('video', 'ai')}
+                  />
+                  <MenuItem
+                    icon="video"
+                    title="Vídeo sem foto da OpenAI"
+                    sub="Só o layout da marca, animado"
+                    onClick={() => pick('video', 'plain')}
+                  />
+                </>
+              )}
+            </>
+          )
+        }}
+      </Dropdown>
     </div>
   )
 }

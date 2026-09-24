@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
 import type { ClientConfig } from '../clients'
 import {
   cancelSchedule,
@@ -12,8 +11,9 @@ import {
   REEL_FLOWS,
 } from '../lib/api'
 import type { ReelFlow, ScheduleFormat, ScheduleJob, ScheduleRecommendation, ScheduleRule, StoryTarget } from '../lib/api'
-import { FONT, UI } from '../ui/theme'
-import { Badge, Button, Card, EmptyState, HighlightCard, SectionHeader, SegmentedControl, Skeleton, Toast, useToast } from '../ui/components'
+import { UI } from '../ui/theme'
+import { Badge, BlockTitle, Button, Card, EmptyState, Field, HighlightCard, SectionHeader, SegmentedControl, Skeleton, Toast, useToast } from '../ui/components'
+import { Icon, type IconName } from '../ui/icons'
 
 /** Valor default do input datetime-local: daqui a 1h, no fuso local. */
 function defaultWhen(): string {
@@ -70,8 +70,8 @@ function describeContent(item: { format: string; slides?: number; flow?: string 
   return 'Feed'
 }
 
-/** Emoji do formato. */
-const formatIcon = (format: string) => (format === 'reels' ? '🎬' : format === 'carousel' ? '📚' : '🖼️')
+/** Ícone do formato. */
+const formatIcon = (format: string): IconName => (format === 'reels' ? 'video' : format === 'carousel' ? 'layers' : 'square')
 
 export function ScheduleView({ client }: { client: ClientConfig }) {
   const { toast, flash } = useToast()
@@ -168,7 +168,7 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
           weekdays,
           times: clean,
         })
-        flash(materialized > 0 ? `Recorrência criada — ${materialized} já na fila! 🔁` : 'Recorrência criada! 🔁')
+        flash(materialized > 0 ? `Recorrência criada — ${materialized} já na fila` : 'Recorrência criada')
       } else {
         const scheduledFor = new Date(when)
         if (isNaN(scheduledFor.getTime())) {
@@ -181,7 +181,7 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
           format,
           ...contentFields,
         })
-        flash(isReels ? 'Reel agendado! 🎬' : 'Post agendado! 📅')
+        flash(isReels ? 'Reel agendado' : 'Post agendado')
       }
       setTheme('')
       void load()
@@ -231,79 +231,79 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
   const pending = jobs.filter((j) => j.status === 'pending').length
 
   return (
-    <div className="app-container app-pad" style={{ paddingTop: 24, paddingBottom: 96 }}>
+    <div className="app-container app-pad" style={{ paddingTop: 28, paddingBottom: 96 }}>
       <SectionHeader
         title="Agenda"
-        subtitle="Programe posts para o piloto automático — uma vez ou recorrente (ex.: todo dia às 9h, 12h e 18h; toda segunda). No horário, o servidor gera, renderiza e publica sozinho."
+        subtitle="Programe posts para o piloto automático, uma vez ou de forma recorrente (ex.: todo dia às 9h, 12h e 18h). No horário, o servidor gera, renderiza e publica sozinho."
       />
 
       {/* Recomendação (quantidade + horários) */}
       {rec && (
         <HighlightCard style={{ marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontSize: 18 }}>💡</span>
-            <span style={{ fontWeight: 800, fontSize: 16, color: UI.ink }}>Recomendação</span>
-            <Badge tone="accent">{rec.basedOn > 0 ? `com base em ${rec.basedOn} posts` : 'padrão inicial'}</Badge>
-          </div>
-          <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontFamily: FONT.mono, fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: UI.inkMuted2 }}>
-                Posts por dia
-              </div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: UI.ink, letterSpacing: '-0.02em' }}>{rec.perDay}×</div>
-            </div>
+          <BlockTitle
+            icon="bulb"
+            title="Recomendação"
+            right={<Badge tone="accent">{rec.basedOn > 0 ? `com base em ${rec.basedOn} posts` : 'padrão inicial'}</Badge>}
+          />
+          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'flex-start', marginTop: 16 }}>
+            <Field label="Posts por dia">
+              <div style={{ fontSize: 26, fontWeight: 700, color: UI.ink, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{rec.perDay}×</div>
+            </Field>
             {rec.hours.length > 0 && (
-              <div>
-                <div style={{ fontFamily: FONT.mono, fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: UI.inkMuted2, marginBottom: 6 }}>
-                  Melhores horários — toque para usar
-                </div>
+              <Field label="Melhores horários · toque para usar">
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {rec.hours.map((h) => (
                     <button key={h} className="chip on" onClick={() => applyHour(h)}>
+                      <Icon name="clock" size={13} />
                       {h}h
                     </button>
                   ))}
                 </div>
-              </div>
+              </Field>
             )}
           </div>
-          <p style={{ margin: '12px 0 0', fontSize: 13.5, lineHeight: 1.55, color: UI.inkMuted }}>{rec.rationale}</p>
+          <p style={{ margin: '14px 0 0', fontSize: 13.5, lineHeight: 1.6, color: UI.inkMuted, maxWidth: 760 }}>{rec.rationale}</p>
         </HighlightCard>
       )}
 
       {/* Formulário */}
-      <Card style={{ marginBottom: 18 }}>
-        {/* Frequência: uma vez ou recorrente */}
-        <div style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: 26 }}>
+        <BlockTitle icon="plus" title="Novo agendamento" />
+
+        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', margin: '20px 0 18px', alignItems: 'flex-start' }}>
+          {/* Frequência: uma vez ou recorrente */}
           <Field label="Frequência">
             <SegmentedControl<'once' | 'recurring'>
               value={mode}
               onChange={setMode}
+              ariaLabel="Frequência"
               options={[
-                { value: 'once', label: '📅 Uma vez' },
-                { value: 'recurring', label: '🔁 Recorrente' },
+                { value: 'once', label: 'Uma vez', icon: 'calendar' },
+                { value: 'recurring', label: 'Recorrente', icon: 'repeat' },
               ]}
             />
           </Field>
+
+          {/* Quando publicar — muda conforme a frequência */}
+          {mode === 'once' && (
+            <Field label="Quando publicar" style={{ width: 240 }}>
+              <input type="datetime-local" className="input" value={when} onChange={(e) => setWhen(e.target.value)} style={{ padding: '8px 12px' }} />
+            </Field>
+          )}
         </div>
 
-        {/* Quando publicar — muda conforme a frequência */}
-        {mode === 'once' ? (
-          <div style={{ marginBottom: 16, maxWidth: 320 }}>
-            <Field label="Quando publicar">
-              <input type="datetime-local" className="input" value={when} onChange={(e) => setWhen(e.target.value)} />
-            </Field>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16 }}>
-            <Field label="Dias da semana (nenhum = todo dia)">
+        {mode === 'recurring' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 18 }}>
+            <Field label="Dias da semana" hint="Nenhum marcado = todo dia">
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {WEEKDAYS.map((label, d) => (
                   <button
                     key={d}
                     className={'chip' + (weekdays.includes(d) ? ' on' : '')}
+                    aria-pressed={weekdays.includes(d)}
                     onClick={() => toggleWeekday(d)}
                     type="button"
+                    style={{ minWidth: 50, justifyContent: 'center' }}
                   >
                     {label}
                   </button>
@@ -319,37 +319,43 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
                       className="input"
                       value={t}
                       onChange={(e) => setTimeAt(i, e.target.value)}
-                      style={{ width: 120 }}
+                      style={{ width: 118, padding: '8px 12px' }}
                     />
                     {times.length > 1 && (
                       <button
                         type="button"
+                        className="icon-btn danger"
                         onClick={() => removeTime(i)}
                         title="Remover horário"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: UI.inkMuted2, fontSize: 16 }}
+                        aria-label="Remover horário"
+                        style={{ border: 'none', background: 'transparent' }}
                       >
-                        ✕
+                        <Icon name="x" size={15} />
                       </button>
                     )}
                   </span>
                 ))}
                 <button className="chip" type="button" onClick={addTime}>
-                  + horário
+                  <Icon name="plus" size={13} />
+                  horário
                 </button>
               </div>
             </Field>
           </div>
         )}
 
-        <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+        <div style={{ height: 1, background: 'var(--border)', margin: '4px 0 18px' }} />
+
+        <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
           <Field label="Formato">
             <SegmentedControl<ScheduleFormat>
               value={format}
               onChange={setFormat}
+              ariaLabel="Formato"
               options={[
-                { value: 'feed', label: 'Feed (1 imagem)' },
-                { value: 'carousel', label: 'Carrossel' },
-                { value: 'reels', label: '🎬 Reels' },
+                { value: 'feed', label: 'Feed', icon: 'square' },
+                { value: 'carousel', label: 'Carrossel', icon: 'layers' },
+                { value: 'reels', label: 'Reels', icon: 'video' },
               ]}
             />
           </Field>
@@ -358,7 +364,7 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
           {format === 'reels' ? (
             <>
               <Field label="Roteiro do vídeo">
-                <select className="input" value={flow} onChange={(e) => setFlow(e.target.value as ReelFlow)}>
+                <select className="select" value={flow} onChange={(e) => setFlow(e.target.value as ReelFlow)} style={{ padding: '8px 34px 8px 12px' }}>
                   {REEL_FLOWS.map((f) => (
                     <option key={f.value} value={f.value}>
                       {f.label}
@@ -372,9 +378,11 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
                     <button
                       key={value}
                       type="button"
+                      aria-pressed={reelTargets.includes(value)}
                       className={'chip' + (reelTargets.includes(value) ? ' on' : '')}
                       onClick={() => toggleTarget(value)}
                     >
+                      {reelTargets.includes(value) && <Icon name="check" size={13} />}
                       {label}
                     </button>
                   ))}
@@ -392,74 +400,106 @@ export function ScheduleView({ client }: { client: ClientConfig }) {
                     className="input"
                     value={slides}
                     onChange={(e) => setSlides(Math.min(10, Math.max(2, Number(e.target.value) || 3)))}
+                    style={{ padding: '8px 12px', maxWidth: 120 }}
                   />
                 </Field>
               )}
-              <Field label="Fundo por IA">
-                <SegmentedControl value={imageMode} onChange={setImageMode} options={imageModes} />
+              <Field label="Foto de fundo (OpenAI)">
+                <SegmentedControl value={imageMode} onChange={setImageMode} options={imageModes} ariaLabel="Foto de fundo" />
               </Field>
               <Field label="Tema (opcional)">
                 <input
                   className="input"
                   value={theme}
                   onChange={(e) => setTheme(e.target.value)}
-                  placeholder="Deixe vazio para a IA escolher"
+                  placeholder="Vazio = a IA escolhe"
+                  style={{ padding: '8px 12px' }}
                 />
               </Field>
             </>
           )}
         </div>
-        <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button loading={saving} onClick={() => void submit()}>
-            {mode === 'recurring'
-              ? '🔁 Criar recorrência'
-              : format === 'reels'
-                ? '🎬 Agendar Reel'
-                : '📅 Agendar publicação'}
+        <div style={{ marginTop: 22, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            loading={saving}
+            icon={mode === 'recurring' ? 'repeat' : format === 'reels' ? 'video' : 'calendar'}
+            onClick={() => void submit()}
+          >
+            {mode === 'recurring' ? 'Criar recorrência' : format === 'reels' ? 'Agendar Reel' : 'Agendar publicação'}
           </Button>
         </div>
       </Card>
 
       {/* Recorrências ativas */}
       {rules.length > 0 && (
-        <div style={{ marginBottom: 22 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <span style={{ fontWeight: 800, fontSize: 15, color: UI.ink }}>🔁 Recorrências</span>
-            <Badge tone="accent">{rules.length}</Badge>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <section style={{ marginBottom: 26 }}>
+          <ListHeading icon="repeat" title="Recorrências" count={rules.length} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {rules.map((r) => (
               <RuleRow key={r.id} rule={r} onDelete={() => void doDeleteRule(r.id)} />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Fila */}
-      {!loadingJobs && jobs.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <span style={{ fontWeight: 800, fontSize: 15, color: UI.ink }}>Fila</span>
-          {pending > 0 && <Badge tone="accent">{pending} pendente{pending > 1 ? 's' : ''}</Badge>}
-        </div>
-      )}
-      {loadingJobs ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} height={64} radius={14} />
-          ))}
-        </div>
-      ) : jobs.length === 0 ? (
-        <Card>
-          <EmptyState icon="📅" title="Nenhum agendamento" hint="Programe seu primeiro post automático no formulário acima." />
-        </Card>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {jobs.map((j) => (
-            <JobRow key={j.id} job={j} onCancel={() => void doCancel(j.id)} />
-          ))}
-        </div>
-      )}
+      <section>
+        <ListHeading icon="clock" title="Fila" count={pending > 0 ? pending : undefined} countLabel={pending > 1 ? 'pendentes' : 'pendente'} />
+        {loadingJobs ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} height={64} radius={14} />
+            ))}
+          </div>
+        ) : jobs.length === 0 ? (
+          <Card>
+            <EmptyState icon="calendar" title="Nenhum agendamento" hint="Programe seu primeiro post automático no formulário acima." />
+          </Card>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {jobs.map((j) => (
+              <JobRow key={j.id} job={j} onCancel={() => void doCancel(j.id)} />
+            ))}
+          </div>
+        )}
+      </section>
       <Toast message={toast} />
+    </div>
+  )
+}
+
+function ListHeading({ icon, title, count, countLabel }: { icon: IconName; title: string; count?: number; countLabel?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      <Icon name={icon} size={16} style={{ color: UI.inkMuted2 }} />
+      <span style={{ fontWeight: 700, fontSize: 15, color: UI.ink }}>{title}</span>
+      {count != null && (
+        <Badge tone="accent">
+          {count}
+          {countLabel ? ' ' + countLabel : ''}
+        </Badge>
+      )}
+    </div>
+  )
+}
+
+/** Quadradinho de ícone à esquerda das linhas da fila/recorrências. */
+function RowIcon({ name }: { name: IconName }) {
+  return (
+    <div
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: 11,
+        background: UI.surfaceAlt,
+        border: '1px solid ' + UI.border,
+        display: 'grid',
+        placeItems: 'center',
+        color: UI.inkMuted,
+        flex: 'none',
+      }}
+    >
+      <Icon name={name} size={18} />
     </div>
   )
 }
@@ -468,42 +508,28 @@ function JobRow({ job, onCancel }: { job: ScheduleJob; onCancel: () => void }) {
   const when = new Date(job.scheduled_for)
   const tone = STATUS_TONE[job.status] ?? 'neutral'
   return (
-    <Card pad="14px 18px">
+    <Card pad="12px 14px 12px 16px">
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: UI.surfaceAlt,
-            border: '1px solid ' + UI.border,
-            display: 'grid',
-            placeItems: 'center',
-            fontSize: 20,
-            flex: 'none',
-          }}
-        >
-          {formatIcon(job.format)}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 150 }}>
-          <span style={{ fontWeight: 800, fontSize: 15, color: UI.ink }}>
-            {when.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}{' '}
+        <RowIcon name={formatIcon(job.format)} />
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 150, flex: '1 1 200px' }}>
+          <span style={{ fontWeight: 700, fontSize: 14.5, color: UI.ink }}>
+            {when.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })} ·{' '}
             {when.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </span>
-          <span style={{ fontSize: 12, color: UI.inkMuted2 }}>
+          <span style={{ fontSize: 12.5, color: UI.inkMuted2 }}>
             {describeContent(job)}
             {job.theme ? ` · "${job.theme}"` : ''}
           </span>
+          {job.status === 'error' && job.last_error && (
+            <span style={{ fontSize: 12, color: 'var(--danger)', marginTop: 4 }}>{job.last_error}</span>
+          )}
         </div>
         <Badge tone={tone}>{STATUS_LABEL[job.status] ?? job.status}</Badge>
-        {job.status === 'error' && job.last_error && (
-          <span style={{ fontSize: 12, color: 'var(--danger)', flex: 1, minWidth: 160 }}>{job.last_error}</span>
-        )}
-        <div style={{ flex: 1 }} />
         {(job.status === 'pending' || job.status === 'error') && (
-          <Button size="sm" variant="danger" onClick={onCancel}>
+          <button className="icon-btn danger" onClick={onCancel} title="Cancelar este agendamento">
+            <Icon name="x" size={15} />
             Cancelar
-          </Button>
+          </button>
         )}
       </div>
     </Card>
@@ -512,54 +538,22 @@ function JobRow({ job, onCancel }: { job: ScheduleJob; onCancel: () => void }) {
 
 function RuleRow({ rule, onDelete }: { rule: ScheduleRule; onDelete: () => void }) {
   return (
-    <Card pad="14px 18px">
+    <Card pad="12px 14px 12px 16px">
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: UI.surfaceAlt,
-            border: '1px solid ' + UI.border,
-            display: 'grid',
-            placeItems: 'center',
-            fontSize: 20,
-            flex: 'none',
-          }}
-        >
-          🔁
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 180 }}>
-          <span style={{ fontWeight: 800, fontSize: 15, color: UI.ink }}>{describeRule(rule)}</span>
-          <span style={{ fontSize: 12, color: UI.inkMuted2 }}>
+        <RowIcon name="repeat" />
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 180, flex: '1 1 220px' }}>
+          <span style={{ fontWeight: 700, fontSize: 14.5, color: UI.ink }}>{describeRule(rule)}</span>
+          <span style={{ fontSize: 12.5, color: UI.inkMuted2 }}>
             {describeContent(rule)}
             {rule.theme ? ` · "${rule.theme}"` : ''}
           </span>
         </div>
-        <div style={{ flex: 1 }} />
-        <Button size="sm" variant="danger" onClick={onDelete}>
+        <button className="icon-btn danger" onClick={onDelete} title="Remover esta recorrência">
+          <Icon name="trash" size={15} />
           Remover
-        </Button>
+        </button>
       </div>
     </Card>
   )
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <span
-        style={{
-          fontFamily: FONT.mono,
-          fontSize: 10,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: UI.inkMuted2,
-        }}
-      >
-        {label}
-      </span>
-      {children}
-    </div>
-  )
-}

@@ -45,6 +45,7 @@ export function CreativeCanvas({
   innerW,
   innerH,
   client,
+  capId,
 }: {
   c: Creative
   idx: number
@@ -53,6 +54,8 @@ export function CreativeCanvas({
   innerW: number
   innerH: number
   client: ClientConfig
+  /** Valor de `data-cap` (padrão: `idx`). Variantes de exportação usam outro id. */
+  capId?: string
 }) {
   const hasBg = Boolean(c.bgImage)
   const isDarkLayout = DARK_BG_LAYOUTS.has(c.layout)
@@ -107,7 +110,7 @@ export function CreativeCanvas({
 
   return (
     <div
-      data-cap={idx}
+      data-cap={capId ?? idx}
       style={{
         width: innerW,
         height: innerH,

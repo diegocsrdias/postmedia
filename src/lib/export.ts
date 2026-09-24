@@ -1,19 +1,39 @@
 import html2canvas from 'html2canvas'
 
-/** Renderiza o nó em canvas nativo (reseta o transform de preview). */
-async function snapshot(node: HTMLElement): Promise<HTMLCanvasElement> {
-  const prev = node.style.transform
-  node.style.transform = 'none'
-  try {
-    return await html2canvas(node, {
-      scale: 2,
-      backgroundColor: null,
-      useCORS: true,
-      logging: false,
-    })
-  } finally {
-    node.style.transform = prev
-  }
+/**
+ * Opções comuns do html2canvas. Tudo é ajustado NO CLONE, nunca no nó da
+ * tela (senão o preview "estoura" pra 1080px enquanto a captura roda):
+ * - reseta o `transform: scale()` do preview → captura em tamanho nativo;
+ * - traz o palco fora da tela (`.export-stage`, onde ficam variantes como
+ *   "sem foto IA") para 0,0, para a captura enxergá-lo como visível.
+ */
+const H2C_OPTS = {
+  scale: 2,
+  backgroundColor: null,
+  useCORS: true,
+  logging: false,
+  onclone: (_doc: Document, el: HTMLElement) => {
+    el.style.transform = 'none'
+    const stage = el.closest<HTMLElement>('.export-stage')
+    if (stage) stage.style.left = '0px'
+  },
+}
+
+/** Renderiza o nó em canvas nativo (tamanho real, sem o scale do preview). */
+function snapshot(node: HTMLElement): Promise<HTMLCanvasElement> {
+  return html2canvas(node, H2C_OPTS)
+}
+
+/** Dispara o download de um Blob com o nome dado. */
+export function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 4000)
 }
 
 /** Renderiza o nó num canvas com fundo branco (base para JPEG). */
@@ -38,10 +58,10 @@ export async function captureJpeg(node: HTMLElement, quality = 0.92): Promise<st
 /** Baixa o criativo como PNG (para postar manualmente com áudio em alta). */
 export async function downloadImage(node: HTMLElement, filename: string): Promise<void> {
   const canvas = await snapshot(node)
-  const a = document.createElement('a')
-  a.href = canvas.toDataURL('image/png')
-  a.download = filename
-  a.click()
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Falha ao gerar PNG'))), 'image/png'),
+  )
+  saveBlob(blob, filename)
 }
 
 /** Captura o nó como Blob JPEG — para subir via URL assinada (carrossel). */
@@ -225,22 +245,7 @@ export async function recordReels(
 ): Promise<RecordedVideo> {
   // Captura cada slide em bitmap nativo (resetando o scale de preview).
   const bases: HTMLCanvasElement[] = []
-  for (const s of slides) {
-    const prev = s.node.style.transform
-    s.node.style.transform = 'none'
-    try {
-      bases.push(
-        await html2canvas(s.node, {
-          scale: 2,
-          backgroundColor: null,
-          useCORS: true,
-          logging: false,
-        }),
-      )
-    } finally {
-      s.node.style.transform = prev
-    }
-  }
+  for (const s of slides) bases.push(await snapshot(s.node))
   if (!bases.length) throw new Error('Nada para gravar')
 
   const W = 1080
