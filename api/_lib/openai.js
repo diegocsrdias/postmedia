@@ -1,6 +1,8 @@
 // Helper compartilhado das Vercel Functions.
 // A chave OPENAI_API_KEY vem das env vars do servidor — NUNCA vai ao navegador.
 
+import { ALLOWED_HEADERS, requireAuth } from './auth.js'
+
 const CHAT_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
 const IMAGE_ENDPOINT = 'https://api.openai.com/v1/images/generations'
 
@@ -190,11 +192,14 @@ export async function readJson(req) {
   return raw ? JSON.parse(raw) : {}
 }
 
-/** Aplica CORS/headers padrão e responde OPTIONS. Retorna true se já respondeu. */
+/**
+ * Aplica CORS/headers padrão, responde OPTIONS e EXIGE a chave da API
+ * (ver api/_lib/auth.js). Retorna true se já respondeu — o handler deve parar.
+ */
 export function preflight(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', ALLOWED_HEADERS)
   if (req.method === 'OPTIONS') {
     res.status(204).end()
     return true
@@ -203,5 +208,6 @@ export function preflight(req, res) {
     res.status(405).json({ error: 'Método não permitido' })
     return true
   }
+  if (requireAuth(req, res)) return true
   return false
 }

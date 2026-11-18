@@ -12,12 +12,50 @@ import { deriveVcap } from './creatives'
 
 const BASE = import.meta.env.VITE_API_BASE || '/api'
 
-async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE}/${path}`, {
+/*
+ * Chave de acesso da API (POSTMEDIA_ADMIN_KEY no servidor). Fica guardada neste
+ * navegador; na primeira chamada recusada (401) o app pede a chave e repete.
+ */
+const KEY_STORAGE = 'postmedia:key'
+
+function readKey(): string {
+  try {
+    return localStorage.getItem(KEY_STORAGE) || ''
+  } catch {
+    return ''
+  }
+}
+
+function saveKey(key: string): void {
+  try {
+    if (key) localStorage.setItem(KEY_STORAGE, key)
+    else localStorage.removeItem(KEY_STORAGE)
+  } catch {
+    /* sem storage: a chave vale só nesta chamada */
+  }
+}
+
+async function send(path: string, body: unknown, key: string): Promise<Response> {
+  return fetch(`${BASE}/${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(key ? { 'X-Postmedia-Key': key } : {}) },
     body: JSON.stringify(body),
   })
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  let key = readKey()
+  let res = await send(path, body, key)
+  if (res.status === 401) {
+    const typed = window.prompt(
+      key ? 'Chave de acesso recusada. Digite a chave do postmedia:' : 'Digite a chave de acesso do postmedia:',
+    )
+    if (typed && typed.trim()) {
+      key = typed.trim()
+      res = await send(path, body, key)
+      saveKey(res.status === 401 ? '' : key)
+    }
+  }
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     throw new Error((data as { error?: string })?.error || `Erro ${res.status}`)

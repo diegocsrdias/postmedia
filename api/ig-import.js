@@ -2,6 +2,7 @@ import { listAccountMedia, fetchMetrics } from './_lib/ig.js'
 import { listClientMediaIds, insertPosts } from './_lib/supabase.js'
 import { rebuildLearnings } from './build-learnings.js'
 import { readJson } from './_lib/openai.js'
+import { ALLOWED_HEADERS, requireAuth } from './_lib/auth.js'
 
 // Backfill do histórico do Instagram: importa os posts que JÁ existem na conta
 // conectada para a base de aprendizado, em vez de começar zerado. Fluxo:
@@ -15,11 +16,12 @@ import { readJson } from './_lib/openai.js'
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', ALLOWED_HEADERS)
   if (req.method === 'OPTIONS') {
     res.status(204).end()
     return
   }
+  if (requireAuth(req, res)) return
 
   try {
     const body = req.method === 'POST' ? await readJson(req) : {}

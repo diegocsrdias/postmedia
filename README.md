@@ -79,8 +79,9 @@ Modelos de texto alternativos: `gpt-4o` (copy mais criativa, mais caro).
    endpoints serverless em `/api/...` no mesmo domínio.
 
 A chave **nunca** vai ao navegador — todas as chamadas à OpenAI acontecem
-dentro das funções. Ainda assim, use uma chave com **limite de gasto** definido
-na OpenAI, já que qualquer visitante do site pode acionar a geração.
+dentro das funções. As rotas exigem a chave de acesso do postmedia (ver
+`POSTMEDIA_ADMIN_KEY` abaixo); mesmo assim, use uma chave da OpenAI com
+**limite de gasto** definido.
 
 ### Rodar o backend localmente
 
@@ -199,7 +200,12 @@ melhores horários reais quando há dados, ou um padrão (12h e 19h) enquanto n�
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (secreta) — só no servidor           |
 | `IG_USER_ID`, `IG_ACCESS_TOKEN` | Credenciais do Instagram (Graph API)              |
 | `PUBLIC_BASE_URL`  | URL pública do deploy (onde `/render.html` é servido)          |
-| `CRON_SECRET`      | Protege os endpoints de cron (sync, learnings, scheduler)      |
+| `CRON_SECRET`      | Chave das automações (cron, worker do Actions, pingers)        |
+| `POSTMEDIA_ADMIN_KEY` | Chave que você digita no app (o navegador pede uma vez)     |
+
+> 🔒 **Todas** as rotas `/api` exigem `POSTMEDIA_ADMIN_KEY` ou `CRON_SECRET`
+> (header `X-Postmedia-Key`, `Authorization: Bearer` ou `?key=`). Sem nenhuma
+> das duas configurada, a API responde 503 — fica fechada, não aberta.
 
 Rode o `supabase/schema.sql` (atualizado) no SQL Editor para criar/migrar as
 colunas de `posts` e as tabelas `schedule` e `learnings`.

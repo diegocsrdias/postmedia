@@ -27,9 +27,13 @@ export async function publish({ base, videoPath, caption, meta, targets = ['reel
 }
 
 async function postJson(url, payload) {
+  // As rotas do postmedia exigem chave: o worker usa o CRON_SECRET (o mesmo
+  // segredo do callback), que já chega como env no GitHub Actions.
+  const secret = process.env.CRON_SECRET || ''
+  if (!secret) throw new Error('CRON_SECRET ausente: as rotas do postmedia exigem chave')
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + secret },
     body: JSON.stringify(payload),
   })
   const data = await res.json().catch(() => ({}))
